@@ -122,3 +122,12 @@ The facts that matter to them, stated plainly in the normal flow of the report:
    in the running system, and it is readable by all three audiences. The demo mine runs on Gos's machine,
    not on the report author's (whose trial stack holds only the GO load), so Gos needs to capture it.
 4. **Terms.** A glossary box between the abstract and the introduction.
+
+## To do on Gos's machine (where the demo mine runs)
+
+1. Capture Figure 2: the BlueGenes report page for CYP2D6.
+2. Item counts for HGNC, Ensembl, UniProt and ClinVar (Table 2).
+3. Confirm how UniProt was fetched: RDF Portal's SIB endpoint (as the generated queries say) or
+   sparql.uniprot.org (as the `sources.yaml` comment says). Fix whichever is wrong.
+4. Which 7 panel symbols HGNC's lookup did not resolve, and whether those genes are in the mine
+   through NCBI Gene.
