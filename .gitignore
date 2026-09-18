@@ -4,8 +4,5 @@ CHECKLIST.md
 # Source papers and notes for writing the report, not part of it.
 background/
 
-# Built by CI (download from the Actions run artifacts) or locally; never committed.
-paper/paper.pdf
-
 # Editor swap files.
 *.swp

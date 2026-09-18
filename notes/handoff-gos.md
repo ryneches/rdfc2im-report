@@ -24,8 +24,9 @@ Build the PDF locally with the image CI uses (first pull is about 1.8 GB):
 podman run --rm -v "$PWD":/work:Z -w /work ghcr.io/biohackrxiv/bhxiv-gen-pdf:master gen-pdf paper
 ```
 
-Or push: CI builds the PDF on every push and attaches it to the Actions run as an artifact. The PDF
-is not committed.
+Or push: CI builds the PDF on every push to `main`, attaches it to the Actions run as an artifact,
+and commits it back as `paper/paper.pdf` ("Update paper.pdf [skip ci]"). Pull before pushing
+again, and do not commit a locally built PDF.
 
 The report repository is the `report/` submodule of rdfc2im (`git submodule update --init
 --checkout report`). After each report commit, commit the new `report` pointer in rdfc2im too.
