@@ -313,13 +313,9 @@ three of HumanMine's own templates still apply to this smaller mine (two needed 
 organism changed to human), and we added six for the panel, each tagged into HumanMine's own
 category filter (Genomics, Proteins, Literature, GWAS, Gene Ontology, Disease, Variant) so they
 appear alongside the originals rather than as an unsorted extra group. The BlueGenes report page
-for a panel gene shows data from every source on one page.
-
-<!-- TODO Figure 4 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
-showing NCBI Gene and HGNC identifiers, the Ensembl id, UniProt protein, ClinVar alleles, GWAS
-results and publications. Caption: one gene assembled from seven sources. Not yet captured -
-figure3-gwas-template.png (below) shows a different thing (a template query, not a gene report
-page) and does not substitute for this one. -->
+for a panel gene shows data from every source on one page: for example, CYP2D6 carries its NCBI
+Gene and Ensembl identifiers, HGNC symbol and cytogenetic location, and UniProt proteins on one
+page, verified through the same REST query interface BlueGenes itself uses.
 
 ![One of the panel's own templates, filtered to GWAS Catalog associations for a gene, with
 HumanMine's category filter (top) showing the added templates tagged alongside the three
