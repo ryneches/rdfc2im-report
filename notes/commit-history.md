@@ -412,19 +412,39 @@ Notes on phase 3:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 15:14 | `50ac2af` | Russell | Link items from each table's designed root |  |  |  |  |
-| 09-16 15:16 | `f614faf` | Russell | Pair columns with the variables the query actually selects |  |  |  |  |
-| 09-16 15:21 | `a6e03e6` | Russell | Stop the PubMed query multiplying rows by N^4 |  |  |  |  |
-| 09-16 15:21 | `6ada38a` | Russell | Map UniProt citation DOIs to Publication.doi, not pubMedId |  |  |  |  |
-| 09-16 15:21 | `7120417` | Russell | Keep one ClinVar Allele.name, backed by real evidence |  |  |  |  |
-| 09-16 15:21 | `77ec84d` | Russell | Stop writing ClinVar coordinates into Allele.name |  |  |  |  |
-| 09-16 15:23 | `bee6405` | Russell | Stop same-object columns silently overwriting each other |  |  |  |  |
-| 09-16 15:24 | `4e80856` | Russell | Load UniProt CD antigen and allergen names as synonyms |  |  |  |  |
-| 09-16 15:26 | `7157d4e` | Russell | Let a constant declare the link it hangs off |  |  |  |  |
-| 09-16 15:28 | `c43f2ab` | Russell | Stop renamed or removed mappings from loading under their old key |  |  |  |  |
-| 09-16 15:28 | `0d57d50` | Russell | Hang HGNC xref DataSources off the cross-reference |  |  |  |  |
-| 09-16 15:33 | `b1a45fc` | Russell | Attach GWAS Catalog's organism to SNP and Gene |  |  |  |  |
-| 09-16 15:33 | `3fc17dd` | Russell | Take GWAS genes from SNP_GENE_IDS; MAPPED_GENE is empty |  |  |  |  |
+| 09-16 15:14 | `50ac2af` | Russell | Link items from each table's designed root | Link a table's objects from the root its query was built around | `translate` records each table's root class (the root subject of its query) in a new `root` column of `columns.tsv`, and `items`, `project` and `check` all read it through one function, `items.table_root`. Before, the root was inferred from column order, so every UniProt table was rooted at Organism (the taxon column came first) and Protein, Synonym, Publication and Gene items were created unlinked. The unlinked-item warnings that `items` collected are now printed. | fetch (warnings on fetched UniProt and GWAS data) | Approach (table root) |
+| 09-16 15:16 | `f614faf` | Russell | Pair columns with the variables the query actually selects | Pair each column with the variable the query really selects | The query builder records the rows it kept, one per SELECT variable, and `columns.tsv` pairs through that list. A skipped link row could otherwise shift later columns onto their neighbours' variables. Latent: no existing table was misaligned. | reading | omit (technical) |
+| 09-16 15:21 | `a6e03e6` | Russell | Stop the PubMed query multiplying rows by N^4 | Map PubMed's MeSH headings once, not four times | rdf-config's PubMed model lists four example values under one predicate (`fabio:hasSubjectTerm`) to show the shapes a value can take. rdfc2im read them as four columns and four independent OPTIONAL patterns, so every variable bound every heading: 5 headings gave 625 rows. Now one column in its own table, with a regex keeping the descriptor of a descriptor/qualifier pair; the other three examples and the mixed `rdfs:seeAlso` descriptor are dropped. | fetch (measured on PubMed 88487) | Results; Discussion (rdf-config examples are not separate predicates) |
+| 09-16 15:21 | `6ada38a` | Russell | Map UniProt citation DOIs to Publication.doi, not pubMedId | Map UniProt citation DOIs to Publication.doi | `citation_doi` had been mapped to `Publication.pubMedId` beside the real PubMed id, so one was lost. Now `Publication.doi` with the `doi:` prefix stripped (`guess`: stock stores only pubMedId). | fetch | Results (curation) |
+| 09-16 15:21 | `7120417` | Russell | Keep one ClinVar Allele.name, backed by real evidence | Keep one source for ClinVar Allele.name | `cvo:variation_name` and `rdfs:label` both wrote `Allele.name` and held the same value. `rdfs:label` keeps it (its basis is the model's term for BioEntity.name); the other is dropped, and its false claim of stock support is removed. | load prep (attribute conflict log) | Results (curation) |
+| 09-16 15:21 | `77ec84d` | Russell | Stop writing ClinVar coordinates into Allele.name | Stop ClinVar coordinates landing in Allele.name | The label of the variant's location blank node (`12:51864290:GRCh37`) had been flattened onto Allele and matched to `name` by term. Dropped with the other coordinates (D13). ClinVar now builds with no attribute conflicts. | load prep (attribute conflict log) | Results; Discussion (flattening blank nodes) |
+| 09-16 15:23 | `bee6405` | Russell | Stop same-object columns silently overwriting each other | Give colliding columns their own tables; make remaining collisions and cross products hard problems | One function, `items.group_key`, defines which object a column writes (class plus link). In `translate`, a column that writes the same field of the same object as an earlier column in its table moves to its own table (the rule multi-valued predicates already follow); required key columns never move. Distinct objects then load separately, and two sources for one root attribute become a reported conflict, not a silent overwrite. `check` makes any collision left in `columns.tsv` a hard problem, and also an untyped predicate bound by several unfiltered columns of one subject (a cross product returning N^k rows). | fetch (UniProt lost alternative names; PubMed headings) | Approach (table rule, checks) |
+| 09-16 15:24 | `4e80856` | Russell | Load UniProt CD antigen and allergen names as synonyms | Load UniProt CD antigen and allergen names as synonyms | With collisions split, both get their own tables and load as `Synonym.value`, marked `guess` because stock UniprotConverter never reads them. | design (follows `bee6405`) | Results (beyond-stock example) |
+| 09-16 15:26 | `7157d4e` | Russell | Let a constant declare the link it hangs off | Let a constant name the link it belongs on (`const_via`) | A knowledge `const` may carry `const_via: {Class.field: Link.field}`, so a constant attaches to a linked object and not the table root. Constants for one field on different links get distinct column names (the name is part of the merge key) and are de-duplicated per (class, field, link). | load prep (unlinked DataSource and Organism items) | Approach (constants) |
+| 09-16 15:28 | `c43f2ab` | Russell | Stop renamed or removed mappings from loading under their old key | Drop stale mapping rows unless the curator edited them, and never load them | In the three-way merge, a row whose key left the fresh output is dropped if it matches its base snapshot (old automatic output). If the curator edited it, or there is no base, it is kept, marked STALE, and made inert (`table=drop`). | load prep (a renamed HGNC constant loaded twice) | Approach (three-way merge) |
+| 09-16 15:28 | `0d57d50` | Russell | Hang HGNC xref DataSources off the cross-reference | Attach HGNC cross-reference DataSources to the cross-reference | Each of HGNC's ten xref tables (ENA, INSDC, RefSeq, CCDS, MGI, RGD, LRG, miRBase, EC, Orphanet) sets `DataSource.name` with `const_via: CrossReference.source`. All 27 sampled cross-references now carry their source. | fetch | Results |
+| 09-16 15:33 | `b1a45fc` | Russell | Attach GWAS Catalog's organism to SNP and Gene | Attach the GWAS Catalog organism to SNP and Gene | The source-wide `Organism.taxonId` constant attached to the table root, GWASResult, which has no organism. It now hangs off `SNP.organism` and `Gene.organism` with `const_via`. For Gene it matters: a gene with only a symbol merges with HumanMine's genes solely through `key_symbol_org` (symbol + organism). | fetch | Results; Approach (why organism links matter for merging) |
+| 09-16 15:33 | `3fc17dd` | Russell | Take GWAS genes from SNP_GENE_IDS; MAPPED_GENE is empty | Take GWAS genes from SNP_GENE_IDS as Ensembl ids in Gene.secondaryIdentifier | On TogoVar, `terms:mapped_genes` is an empty string on all 686,504 associations, so no genes loaded. `terms:snp_gene_ids` holds Ensembl gene IRIs (as stock HugeGwasConverter uses), written to `Gene.secondaryIdentifier` with an organism link so they merge on `key_secondaryidentifier_org`, not as primaryIdentifier (which is NCBI in HumanMine). | fetch (checked on TogoVar) | Results; settles the question left open in `3e3c104` |
+
+Notes on phase 4:
+
+- **What survives into Approach.** All five code rules are in the current code: the recorded table
+  root (`items.table_root`), collision splitting and the collision and cross-product checks
+  (`items.group_key`, `mapping._split_collisions`, `project.column_collisions`,
+  `project.cross_products`), constants on a named link (`const_via`), and inert stale rows in the
+  three-way merge. `f614faf` is a latent technical fix and can be omitted.
+- **Found before loading.** Unlike phase 1, most of this phase was found by inspecting fetched data
+  and the items build (unlinked-item warnings, the attribute-conflict log) before any load. The
+  fixes are mostly in `knowledge.yaml` and take effect through the new mechanisms: 10 HGNC xref
+  constants, 3 organism constants.
+- **Discussion candidates (conceptual):**
+  - rdf-config lists example values under one predicate to show value shapes (`a6e03e6`). A
+    translator that reads the model literally treats them as separate columns. The model is
+    documentation of shapes as much as a schema.
+  - Flattening a blank node onto its parent can put a structural label into a real field
+    (`77ec84d`, coordinates in `Allele.name`).
+  - Organism links on secondary objects are needed for InterMine's merge keys (`b1a45fc`,
+    `3fc17dd`; see also `a67ce39` and `52f3b7c` in phase 8): a gene with no organism never merges.
 
 ### Phase 5. Integrating with the mine
 
