@@ -330,7 +330,96 @@ stage that showed the problem: a full fetch, an InterMine load, or use of the ru
 
 # Discussion
 
-<!-- TODO -->
+The demonstration shows that the approach works from end to end. A HumanMine can be built from
+RDF Portal data through the datasets' own rdf-config models, with the mapping kept as reviewable
+data and no new Java code. It also shows what RDF Portal's review guidelines and rdf-config models
+were designed to allow: a third party reused the data automatically, for a purpose its providers
+did not plan. The result is a proof of concept, not a replacement for HumanMine. It loads nine sources,
+most of them limited to a panel of 113 genes, where HumanMine's 2022 release integrated about 40
+datasets, and it loads no genome coordinates. We hope the lessons below help others who try the same with other mines or other
+RDF collections.
+
+## Term matching and stock converters
+
+We expected the ontology terms in the InterMine model to drive most of the mapping, as the
+workflow proposed at the previous hackathon. They supplied few rules (18 of 449). The stock
+HumanMine converters supplied far more (211), because a rebuilt mine must agree with the existing
+one on identifiers and on what each field means. Three early decisions changed when we checked
+them against a converter or the live mine: a predicate matched by name to `Allele.reference` held
+the reference sequence, not the reference base; ClinVar's rdf-config identifier differs from the
+key HumanMine uses; and a filter to reviewed UniProt entries would have removed about 83% of
+HumanMine's human proteins. For anyone replacing an established loader, the behavior of that
+loader is the specification. Recording the basis of every mapping row made these changes cheap to
+find and to make.
+
+## What a translator needs from an rdf-config model
+
+The rdf-config models were enough to generate every query in this work. Some things a translator
+needs are not stated in them, and had to come from elsewhere. A model does not mark which
+predicate identifies a record; rdfc2im takes this from InterMine's integration keys. Example values
+listed under one predicate may be alternative shapes of one value, not separate values (PubMed's
+MeSH headings). Blank nodes can carry structural labels that look like data (ClinVar's location
+labels). One predicate can mix kinds of value: Reactome's comments hold both descriptions and
+curation notes, and Ensembl's `part_of` points at both a chromosome and an assembly. RDF Portal
+already uses its models to draw schema diagrams, to configure its GraphQL interface and to guide
+AI agents. Small additions, such as marking a record's identifier and whether examples are
+alternatives, would help every such consumer. We offer these as input to the development of
+rdf-config.<!-- TODO (Katayama, Kawashima): check this paragraph as rdf-config and RDF Portal developers. -->
+
+## Identity is the hard part
+
+Most problems in Table 3 were about identity. A generic loader must know each object's key, must
+make sure that every object that has to merge carries all of its key fields (a gene needs its
+organism as well as its identifier), and must detect where the source data breaks a key that the
+mine assumes. Where the data cannot be resolved cleanly, rdfc2im loads less rather than merging
+wrongly: it drops the row, or removes the ambiguous value. The internal checks did not catch the
+duplicated Reactome pathways; a comparison with the known number of human pathways did. Comparing
+counts against outside knowledge should be a routine step.
+
+## Replacing a pipeline piece by piece
+
+Replacing a stock source is not the same as mapping its data. A source can load everything its RDF
+offers and still remove what the stock converter loaded from other files, such as Reactome's
+links between pathways and genes. The *alongside* role and the replacement check exist for this
+reason. The check can only compare what a stock source declares, not what it loads, so it needs a
+recorded reason for each accepted gap. A second obstacle is HumanMine's own web configuration,
+which assumes that all of its sources are loaded. A mine built from a subset of sources, like our
+panel, has to trim four configuration files by hand. Small, focused mines would be easier to build
+if this were generated from the model the mine actually has.
+
+## Public SPARQL endpoints for bulk extraction
+
+Endpoints differ in their limits and behavior, and the standard ways to page through results
+failed on them: a fixed limit on sorted results cut tables short without an error, and paging by
+comparing values returned wrong results. Batches of listed keys were reliable. This is not a fault
+of the services, which are built mainly for interactive queries; bulk extraction is a different
+use. But a client that extracts in bulk must check completeness, and ideally correctness, against
+the server's own counts. RDF Portal also offers its datasets as files, which may suit a full
+rebuild better than SPARQL.
+
+## A mine is built, not edited
+
+InterMine serves objects from a stored copy and tracks which source set each value, so correcting
+one source in a mine that is already loaded proved fragile. For a pipeline that regenerates
+everything from RDF, the natural unit of update is a full rebuild. The build is not yet scripted
+from start to finish; we see that as the most important next step.
+
+## Future Work
+
+- Script the whole build, from RDF to a running mine, including the trimmed web configuration,
+  templates, search index and postprocessing, so that a mine can be rebuilt for each RDF Portal
+  release.
+- Extend the demonstration to a full HumanMine build: full-scale loads of the panel-limited
+  sources, more of HumanMine's datasets, and the open mapping decisions.
+- Load genome coordinates (FALDO), and GO annotations, which need an intermediate object that the
+  current mapping cannot express.
+- Add integration keys where HumanMine has none (GWASResult) or only a draft (Pathway, MeSH
+  terms).
+- Report the non-ASCII loading bug to InterMine; rdfc2im currently works around it.
+- Propose additions to rdf-config that would help automated consumers, and validate the mapping
+  files with SSSOM tools.
+- Test the approach on another organism and another mine, and compare SPARQL extraction with RDF
+  Portal's file downloads.
 
 ## Acknowledgements
 
