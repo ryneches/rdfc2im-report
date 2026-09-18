@@ -318,14 +318,34 @@ Columns to fill in, phase by phase: *clear title*, *what changed* (the rule, in 
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 09:13 | `9609e33` | Russell | Fix the humanmine-items packaging so the source can actually load |  |  |  |  |
-| 09-16 09:14 | `fb42d40` | Russell | Make the workspace reproducible: inputs, curation state, spec index |  |  |  |  |
-| 09-16 09:20 | `e04587a` | Russell | Fix two mappings that silently produced wrong or missing data |  |  |  |  |
-| 09-16 09:30 | `582fe7e` | Russell | Filter anonymous OWL superclasses out of ontology parents |  |  |  |  |
-| 09-16 09:35 | `1cbae27` | Russell | Make the generated mine config survive a real InterMine build |  |  |  |  |
-| 09-16 09:36 | `3dc99a6` | Russell | Register the loader as bio-source-humanmine-items |  |  |  |  |
-| 09-16 09:42 | `f438887` | Russell | Carry definitions from the sources we replace into the additions |  |  |  |  |
-| 09-16 09:44 | `9201c5e` | Russell | Record the go load trial |  |  |  |  |
+| 09-16 09:13 | `9609e33` | Russell | Fix the humanmine-items packaging so the source can actually load | Package the loader so InterMine can find its keys, and use the streaming loader | Generated keys and additions go to `humanmine-items/resources/`, the directory Java-less sources package (`build.gradle` declares it); `src/main/resources/` is never packaged. The loader switches to `have.large.file.xml.tgt`: it parses items with SAX and stores each one as read, while the plain loader holds the whole file in memory first. | reading | Approach (loader) |
+| 09-16 09:14 | `fb42d40` | Russell | Make the workspace reproducible: inputs, curation state, spec index | Rebuild the inputs from upstream and track only the curation state | `make inputs` clones `dbcls/rdf-config`, `intermine/intermine`, `intermine/humanmine` and `humanmine-bio-sources`, and downloads the live HumanMine model. So the rdf-config models come from the rdf-config GitHub repository, not from RDF Portal. Git tracks only the two mapping files per source and their base snapshots; everything else under `out/` is derived. `SPEC-DECISIONS.md` rebuilds decisions D1-D13 from citations. | design | Approach (inputs, reproducibility) |
+| 09-16 09:20 | `e04587a` | Russell | Fix two mappings that silently produced wrong or missing data | Keep parent links written as a subject reference; stop GO terms landing in Protein.keywords | A predicate whose object subject is already on the path (a cycle, e.g. MP/Uberon `rdfs:subClassOf` naming their own subject) becomes an ordinary IRI column instead of a link row that the query builder dropped. UniProt `core:classifiedWith` -> GOTerm is demoted to `todo`: the only OntologyTerm collection on Protein is `keywords`, and GO annotation needs an intermediate GOAnnotation object that one `via` cannot express. `check` warns when a `via` range is a strict ancestor of the column's class. A table with only key columns is not generated. | fetch | Approach (traversal, via limits); Results |
+| 09-16 09:30 | `582fe7e` | Russell | Filter anonymous OWL superclasses out of ontology parents | Filter blank nodes and owl:Thing out of ontology parents | The generic `rdfs:subClassOf` -> `OntologyTerm.parents` rule gets a filter on the raw IRI (OBO namespace only), run before `iri_localname`. In OWL, `rdfs:subClassOf` also points at anonymous restrictions: 16,178 of 92,208 GO superclass rows were blank nodes. The column is optional, so a rejected value is blanked and the term still loads. Checked with InterMine's own `FullParser`: 125,213 items, 0 problems. | fetch (first full extract) | Approach (filters before transforms); Results |
+| 09-16 09:35 | `1cbae27` | Russell | Make the generated mine config survive a real InterMine build | Carry model classes the live mine lacks into the additions; pin the source version | `project` copies every class and field the mappings write that the live model lacks (with `extends` and the fields used) into `humanmine-items_additions.xml`, e.g. `AnatomyTerm`. Each generated `<source>` gets `version="4.3.0"`, or the mine resolves the default bio version and never finds the jar. | load (build) | Approach (mine config); Results |
+| 09-16 09:36 | `3dc99a6` | Russell | Register the loader as bio-source-humanmine-items | Register the loader as `bio-source-humanmine-items` | The gradle project must be named `bio-source-humanmine-items` (directory unchanged), because the mine resolves every source as `org.intermine:bio-source-<type>:<version>`. | load (build) | Results (packaging) |
+| 09-16 09:42 | `f438887` | Russell | Carry definitions from the sources we replace into the additions | Carry every non-core class the mappings use, not only those absent from the live mine | Only `core.xml` and `genomic_additions.xml` are in every mine; any other class comes from some source's additions. Replacing a stock source removes its classes too (GOTerm is declared by go, go-annotation, interpro-go, uniprot and psi-complexes; rdfc2im replaces go and uniprot). So `project` now carries every non-core class the mappings use (11 of 26), with non-core ancestors and the ranges of their links. Declaring a class in several additions files is normal in InterMine. | load | Approach (mine config); Results |
+| 09-16 09:44 | `9201c5e` | Russell | Record the go load trial | Record the first end-to-end load: full GO | Documentation only. `LOAD-TRIAL.md`: 48,351 GO terms, 76,859 synonyms and 65,768 parent links in a real production database; 65,768 is exactly the number of OBO-namespace superclass rows, so the blank-node filter holds from SPARQL to the database. Records the four defects above and what remained untested (merging one object across two sources). | load | Results |
+
+Events in this phase with no commit of their own:
+
+- The first live fetch ran between the snapshot and `e04587a`: every generated query returned rows
+  at a small `LIMIT` (STATUS.md changed from "not run" to "exercised" in `e04587a`).
+- The first full extract (GO, no `LIMIT`) found the blank-node parents (`582fe7e`).
+- The first InterMine build and load found the three packaging defects (`1cbae27`, `3dc99a6`,
+  `f438887`) and the GO load itself is recorded in `9201c5e`.
+
+Endpoints, from the generated queries (the `# Endpoint:` line comes from each source's rdf-config
+`endpoint.yaml`): ncbigene, clinvar and pubmed use `rdfportal.org/ncbi`; hgnc, go and hpo use
+`rdfportal.org/primary`; reactome, ensembl and expressionatlas use `rdfportal.org/ebi`; uniprot uses
+`rdfportal.org/sib`; mp and uberon use `rdfportal.org/bioportal`. Only gwascatalog (`togovar.org`)
+and mesh (`id.nlm.nih.gov`) are outside RDF Portal.
+
+**Discrepancy to resolve:** the `sources.yaml` comment added in `1a5db72` says UniProt is fetched
+from "UniProt's own native SPARQL endpoint (sparql.uniprot.org), not RDF Portal", and its
+`data_source_url` is uniprot.org for that reason. The generated queries name
+`https://rdfportal.org/sib/sparql`. Unless the trial fetched UniProt some other way, 8 of the 9
+demo-panel sources are RDF Portal data, and the comment and URL are wrong.
 
 ### Phase 2. Trial stack
 
