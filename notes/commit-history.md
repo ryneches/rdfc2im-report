@@ -351,8 +351,21 @@ demo-panel sources are RDF Portal data, and the comment and URL are wrong.
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 13:54 | `d2c3ad4` | Russell | Stop loading OWL properties as ontology terms |  |  |  |  |
-| 09-16 13:54 | `144363f` | Russell | Run the trial stack in containers with docker-compose |  |  |  |  |
+| 09-16 13:54 | `d2c3ad4` | Russell | Stop loading OWL properties as ontology terms | Drop OWL properties that were loading as GO terms | The generic `oboinowl:id` -> `OntologyTerm.identifier` rule gets a filter requiring the `PREFIX:digits` shape. OBO ontologies also give `oboinowl:id` to OWL object and annotation properties: a full GO extract has 11 (`part_of`, `regulates`, `ends_during`, ...), which loaded as GOTerms. The identifier column is required, so a failing row is dropped, not blanked (48,351 -> 48,340 GOTerms). Applies to go, hpo, mp and uberon. | use (browsing BlueGenes: the first GOTerm by identifier was `ends_during`) | Approach (filters on required columns); Results |
+| 09-16 13:54 | `144363f` | Russell | Run the trial stack in containers with docker-compose | Run the trial mine as three containers; record what breaks when a mine runs a subset of HumanMine's sources | `trial/docker-compose.yml`: `postgres:14` (data in a named volume), the InterMine webapp in `tomcat:8.5` (JDK 8) and BlueGenes 1.4.5 (JDK 17), all published to 127.0.0.1 only, driven by `make up`/`down`/`restart`/`trial-destroy`. `tools/trial-stage.sh` explodes the built war and patches its database host for the compose network, and collects BlueGenes' 178 runtime jars. The gradle build and load run on the host (JDK 8, Gradle 4.9) against the published Postgres port. `LOAD-TRIAL.md` records that running any subset of HumanMine's sources breaks four config files: `genomic_priorities.properties` (load fails), `webconfig-model.xml` classes and widgets (UI error), and `objectstoresummary.config.properties` autocomplete (bare 503). Each must be reduced against the merged model the mine built. | load (setting up the GO trial) | Approach (trial setup, briefly); Discussion (reducing a mine) |
+
+Notes on phase 2:
+
+- `d2c3ad4` is a mapping fix, not stack work. It sits here by time: the GO load had just reached
+  BlueGenes. Like `582fe7e`, it is a filter on the raw value that keeps OWL structure out of
+  OBO term data.
+- The build steps (`builddb`, `integrate -Psource=...`, `webapp:war`) are not scripted in the
+  repository. `LOAD-TRIAL.md`, "Reproducing it", lists them by hand, and the mine checkout lived in
+  a scratch directory that no longer exists. For the report this means the trial mine is
+  reproducible from the notes, not from one command.
+- "Reducing a mine" is a finding about InterMine, not about rdfc2im: HumanMine's webapp
+  configuration assumes every HumanMine source is loaded. Any build from a subset of sources
+  (including a gene-panel demo) must trim four files. This belongs in Discussion.
 
 ### Phase 3. Curation against the stock converters
 
