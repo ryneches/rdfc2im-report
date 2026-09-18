@@ -47,19 +47,22 @@ authors_short: Russell Y. Neches \emph{et al.}
 
 # Abstract
 
-InterMine databases such as HumanMine integrate many biological data sources, but each source
-needs its own loader, and keeping those loaders current is costly. The public HumanMine has not
-had a data release since February 2022. RDF Portal, operated by the Database Center for Life
-Science, now serves many of the same sources as reviewed RDF, and describes each dataset with an
-rdf-config model. At the DBCLS BioHackathon 2026 we developed rdfc2im, a tool that maps rdf-config
-models onto the InterMine data model, keeps the mapping as reviewable data with the evidence for
-every row, generates the SPARQL queries, and writes files that InterMine's standard loader
-integrates without new code. We used it to build a working HumanMine from nine sources for a panel
-of 113 food- and drug-metabolism genes, with NCBI Gene, the Gene Ontology and Reactome loaded in
-full. The mine supports search, template queries and list analysis. Real loads found problems that
-static checks did not, most of them about how objects from different sources are identified and
-merged, and about the limits of public SPARQL endpoints. The work is a proof of concept. We list
-what remains before it can rebuild a full HumanMine from each RDF Portal release.
+InterMine databases such as HumanMine integrate many biological data sources, but each
+source needs its own loader, and keeping those loaders current is costly. The public
+HumanMine has not had a data release since February 2022. RDF Portal, operated by the
+Database Center for Life Science, now serves many of the same sources as reviewed RDF, and
+describes each dataset with an rdf-config model. At the DBCLS BioHackathon 2026 we
+developed rdfc2im, a tool that maps rdf-config models onto the InterMine data model, keeps
+the mapping as reviewable data with the evidence for every row, uses RDF Config to
+generate SPARQL queries to acquire data from RDF Portal, and writes the data into a form
+that InterMine's standard loader integrates without new code. We used it to build a
+working demonstration HumanMine from nine sources and a panel of 113 food- and
+drug-metabolism genes, with NCBI Gene, the Gene Ontology and Reactome loaded in full. The
+mine supports search, template queries and list analysis. Real loads found problems that
+static checks did not, most of them about how objects from different sources are
+identified and merged, and about the limits of public SPARQL endpoints. The work is a
+proof of concept. We list what remains to be done before rdfc2im can rebuild a full
+HumanMine from each RDF Portal release.
 
 Table: Glossary. Terms used in this report, as they are used here.
 
@@ -74,28 +77,30 @@ Table: Glossary. Terms used in this report, as they are used here.
 | Items XML | InterMine's generic input format: a file of objects (*items*) with their attributes and references. |
 | Integration key | The fields InterMine uses to decide that objects from two sources are the same object, for example a gene's NCBI Gene identifier. |
 | Priorities | The configuration that decides which source's value wins when two sources give one field different values. |
-| Additions | A source's extension to the InterMine data model: the classes and fields it adds. |
+| Additions | A source's extension to the core InterMine data model: the classes and fields it adds. |
 | SSSOM | A standard tab-separated format for mappings between vocabularies [@usesMethodIn:Matentzoglu2022SSSOM]. |
 | BlueGenes | InterMine's current web interface. |
 
 # Introduction
 
-Integrative analysis in biology depends on bringing independent databases together, so that the
-evidence about a gene, a protein or a disease can be queried in one place. InterMine is an
-open-source data warehouse system built for this purpose [@citesAsAuthority:Smith2012InterMine].
-From one object model, based on the Sequence Ontology, InterMine generates a web interface, a query
-builder, template searches, list analysis with enrichment statistics, and a REST API with client
-libraries in several languages [@citesAsAuthority:Kalderimis2014InterMine]. HumanMine is the
-InterMine instance for human data. Its 2022 release integrated about 40 datasets, among them NCBI
-Gene, HGNC, UniProt, the Gene Ontology, Reactome, ClinVar and the GWAS Catalog, into one searchable
-database [@citesAsAuthority:Lyne2022HumanMine].
+Integrative analysis in biology depends on bringing independent databases together, so
+that the evidence about, for instance genes, proteins or diseases can be queried in one
+place. InterMine is an open-source data warehouse system built for this purpose
+[@citesAsAuthority:Smith2012InterMine].  From one object model, based on the Sequence
+Ontology, InterMine generates a web interface, a query builder, a template search
+capability, list analysis with enrichment statistics, and a REST API with client libraries
+in several commonly used languages [@citesAsAuthority:Kalderimis2014InterMine]. HumanMine
+is the InterMine instance for human data. Its 2022 release integrated over 60 datasets
+from over 30 sources, among them NCBI Gene, HGNC, UniProt, the Gene Ontology, Reactome,
+ClinVar and the GWAS Catalog, into one searchable database
+[@citesAsAuthority:Lyne2022HumanMine].
 
-The cost of a mine is in keeping its data current. Each source reaches the warehouse through its
-own loader: a parser for a standard format, a custom Java converter, or a file in InterMine's own
-XML item format [@Smith2012InterMine]. When a provider changes its release format, its loader must
-change too, and a mine with dozens of sources carries dozens of such dependencies. The 2022
-HumanMine paper states that the data "are updated quarterly" [@Lyne2022HumanMine]. In September
-2026, the public HumanMine still reports its release of 12 February 2022.
+A key cost of a mine is in keeping its data current. Each source reaches the warehouse
+through its own loader: a parser for a standard format, a custom Java converter, or a file
+in InterMine's own XML item format [@Smith2012InterMine]. When a provider changes its
+release format, its loader must change too, and a mine with dozens of sources carries
+dozens of such dependencies. The cost of this maintenance is one reason that the public
+HumanMine still reports its release as 12 February 2022.
 
 Many of the same sources are now available from one service, in one format. RDF Portal, operated by
 the Database Center for Life Science (DBCLS), hosts life science datasets in RDF behind public
@@ -110,17 +115,18 @@ Reactome and PubMed [@RDFPortal]. Each dataset on the portal also has an rdf-con
 them, and the form of their values. The portal uses these models to draw schema diagrams, to
 generate SPARQL, and to configure its GraphQL and AI-agent interfaces.
 
-Together, these two resources suggest a different way to build a mine. If the structure of each
-source is already described in a machine-readable model, then the mapping from that model to the
-InterMine model can be written once, as data and not as code. One generic tool can then fetch,
-transform and load any source that has such a model (Figure \ref{fig:ecosystem}). rdfc2im (rdf-config to InterMine) is that
-tool. It aligns rdf-config models to the HumanMine data model and records each alignment in a
-mapping file that a curator can review. From the mapping it generates SPARQL queries, fetches the
-results, and writes InterMine Items XML for the stock InterMine loader. In this report we describe
-rdfc2im and its use at the DBCLS BioHackathon 2026, where we built a working HumanMine for a panel
-of 113 food- and drug-metabolism genes from nine RDF sources, most of them on RDF Portal. We also
-record the problems that only a real InterMine load revealed, which static checks of the mapping
-did not.
+Together, these two resources suggest a different way to build a mine. If the structure of
+each source is already described in a machine-readable model, then the mapping from that
+model to the InterMine model can be written once, as data and not as code. One generic
+tool can then fetch, transform and load any source that has such a model (Figure
+\ref{fig:ecosystem}). rdfc2im (rdf-config to InterMine) is that tool. It aligns rdf-config
+models to the HumanMine data model and records each alignment in a mapping file that a
+curator can review. From the mapping it uses rdf-config to generate SPARQL queries,
+fetches the results, and writes InterMine Items XML for the stock InterMine loader. In
+this report we describe rdfc2im and its use at the DBCLS BioHackathon 2026, where we built
+a working demonstration HumanMine for a panel of 113 food- and drug-metabolism genes from
+nine RDF sources, most of them on RDF Portal. We also record the problems that only a real
+InterMine load revealed, which static checks of the mapping did not.
 
 ![How a mine gets its data. (a) Today each HumanMine source has its own loader, written and
 maintained as code by the mine's developers. (b) With RDF Portal and rdfc2im, the work for each
@@ -146,18 +152,20 @@ the mapping is regenerated. \label{fig:pipeline}](figure2-pipeline.pdf){ width=1
 
 ## Inputs
 
-rdfc2im reads three kinds of input. The first is the rdf-config model of each source, taken from
-the rdf-config repository [@usesDataFrom:rdfconfig]: the subjects and predicates of the dataset,
-the cardinality of each predicate, example values, prefixes, and the SPARQL endpoint. The second
-is HumanMine's own configuration: the InterMine core model, the additions and integration keys of
-each source that HumanMine runs, its source list (`project.xml`), and its priorities, taken from
-the InterMine and HumanMine repositories. rdfc2im reasons over the InterMine model limited to
-HumanMine's sources, plus a short list of model extensions that the project approved (for
-example, `Gene.typeOfGene` and `Pathway.description`). The third is the data itself, fetched from
-the endpoints that the rdf-config models name. In the demonstration build, every source came from
-RDF Portal except the GWAS Catalog, which came from TogoVar. This includes UniProt: its queries
-are sent to RDF Portal's SIB mirror (`rdfportal.org/sib/sparql`), not to UniProt's own
-`sparql.uniprot.org`, which appears only as a named graph inside that RDF Portal dataset.
+rdfc2im reads three kinds of input. The first is the rdf-config model of each source,
+taken from the rdf-config repository [@usesDataFrom:rdfconfig]: the subjects and
+predicates of the dataset, the cardinality of each predicate, example values, prefixes,
+and the SPARQL endpoint. The second is HumanMine's own configuration: the InterMine core
+model, the additions and integration keys of each source that HumanMine runs, its source
+list (`project.xml`), and its data source priorities, taken from the InterMine and
+HumanMine repositories. rdfc2im reasons over the InterMine model limited to HumanMine's
+sources, plus a short list of model extensions that the project approved (for example,
+`Gene.typeOfGene` and `Pathway.description`). The third is the data itself, fetched from
+the endpoints that the rdf-config models name. In the demonstration build, every source
+came from RDF Portal except the GWAS Catalog, which came from TogoVar. This includes
+UniProt: its queries are sent to RDF Portal's SIB mirror (`rdfportal.org/sib/sparql`), not
+to UniProt's own `sparql.uniprot.org`, which appears only as a named graph inside that RDF
+Portal dataset.
 
 ## Mapping
 
@@ -170,36 +178,37 @@ class. The first rule that applies decides:
    gives a class or field;
 3. a general rule for that RDF type or predicate;
 4. a match between names;
-5. otherwise the row is left for a curator.
+5. otherwise the row is tagged as "todo" and left for a curator.
 
 Every column that rdfc2im extracts is an attribute of one object. When a value belongs to a
 different object, for example a synonym of a gene, the mapping names the reference that connects
 the two (`Gene.synonyms`). Objects are linked only where a mapping names the link.
 
-The mapping also decides how the data is split into tables. Each table is one SPARQL query and
-one file. The main table holds the root's identifier and its single-valued attributes. Each
-multi-valued predicate that creates other objects gets a table of its own, holding the root's
-identifier and that one column, so that two multi-valued predicates never multiply each other's
-rows. For NCBI Gene this gives five tables: the gene itself, its synonyms, its alternative
-names, its Ensembl identifiers and its cross-references.
+The mapping also decides how the data extracted from RDF portal is split into tables. Each
+table is one SPARQL query and one file. The main table holds the root's identifier and its
+single-valued attributes. Each multi-valued predicate that creates other objects has a
+table of its own, holding the root's identifier and that one column, so that two
+multi-valued predicates never multiply each other's rows. For NCBI Gene this gives five
+tables: the gene itself, its synonyms, its alternative names, its Ensembl identifiers and
+its cross-references.
 
 ## Curation
 
-Each source has two mapping files that a curator edits: one row per subject, and one row per
+Each source has two mapping files that a curator can edit: one row per subject, and one row per
 predicate. The predicate file uses the SSSOM layout [@usesMethodIn:Matentzoglu2022SSSOM], with
 rdfc2im's own columns declared as extensions. Every row has a *status* and a *basis*. The status
 decides whether the row loads: `sure` (backed by evidence), `guess` (a proposal to review) and
-`human` (the curator's own edit) load; `todo` (undecided) and `drop` (not loaded, with the
-reason) do not. The basis records where the mapping came from, for example a term match or a
+`human` (the curator's own edit) are all loaded; `todo` (undecided) and `drop` are not loaded, with the
+reason given. The basis records where the mapping came from, for example a term match or a
 named converter.
 
 The reference for curation is the stock HumanMine converter for the same source. A field that the
 converter writes is mapped, and its basis names the converter. A field that the converter never
-writes, or that the model cannot hold, is dropped with the reason. A field beyond what the
+writes, or that the model cannot hold, is dropped with a reason. A field beyond what the
 converter writes loads only as a `guess`. A choice that the converter does not settle stays
 `todo`. Rules that apply across runs are kept in one reviewable file, with their evidence. When
 rdfc2im regenerates the mapping files, a three-way merge against its previous automatic output
-keeps every value that the curator changed.
+ensures that every value that a curator changed is preserved.
 
 Using a standard mapping format pays off beyond loading: rdfc2im can project the SSSOM mapping
 back onto each source's own rdf-config model, producing a copy of that source's `model.yaml` with
@@ -240,14 +249,15 @@ left empty.
 
 rdfc2im writes one Items XML file per source. We chose Items XML over InterMine's loader for
 tab-delimited files because it states every reference explicitly, so objects are linked exactly
-where the mapping says. The files are loaded by InterMine's standard Items XML loader, registered
+as defined by the mapping. The files are loaded by InterMine's standard Items XML loader, registered
 as a source type of its own so that rdfc2im's generated keys and model additions travel with it.
-No Java code is needed.
+No new Java code is needed.
 
-Within a source, rows that describe one object become one item: rdfc2im identifies an object by
-the first integration key of its class that the row fills. So a gene met in five tables is one
-item. Values for numeric fields are checked against the field's type, and a value that does not
-fit (such as "NR", for "not reported") is dropped and reported.
+Within a source, multiple rows that describe a single object become one item: rdfc2im
+identifies an object by the first integration key of its class that the row fills. So a
+gene met in five tables is one item. Values for numeric fields are checked against the
+field's type, and a value that does not fit (such as "NR", for "not reported") is dropped
+and reported.
 
 rdfc2im also generates the configuration that the mine needs. Each rdfc2im source has one of
 three roles. It *replaces* a stock source (NCBI Gene, HGNC, GO, HPO, MP, ClinVar and the GWAS
@@ -255,20 +265,21 @@ Catalog). It loads *alongside* a stock source, right after it, filling only what
 leaves empty (UniProt, Reactome). Or it *adds* data that HumanMine did not have (for example
 Ensembl and PubMed). The generated additions include every class the mappings use that is not in
 InterMine's core model, because removing a stock source also removes the classes it declared. The
-generated priorities are HumanMine's own, with each replacing source in the place of the source
-it replaces. A final check fails on an unknown field, a link whose type does not fit, two columns
+generated source priorities are HumanMine's own, with each replacing source in the place of the source
+it replaces. Final checks can fail on an unknown field, a link whose type does not fit, two columns
 that write one field of one object, or data that a replaced stock source loaded and its
 replacement does not, unless that gap is accepted with a reason.
 
 ## Scope and the demonstration build
 
-A build can be limited to species and to a list of genes without editing the mapping: the limit
-is applied to a copy of the mapping when the queries are generated. Each source names the field
-that identifies its genes, and a live lookup translates gene symbols into that source's own
-identifiers (NCBI Gene or Ensembl). Where the source data breaks an integration key that
-HumanMine assumes, a configured rule decides which object keeps the value. If the rule cannot
-decide, no object keeps it. For example, 255 Ensembl identifiers are each claimed by two or more
-genes in NCBI Gene; the identifier stays only on a gene that is the one protein-coding claimant.
+A build can be limited to one or more species and to a list of genes without editing the
+mapping: the limit is applied to a copy of the mapping when the queries are
+generated. Each source names the field that identifies its genes, and a live lookup
+translates gene symbols into that source's own identifiers (NCBI Gene or Ensembl). Where
+the source data breaks an integration key that HumanMine assumes, a configured rule
+decides which object keeps the value. If the rule cannot decide, no object keeps it. For
+example, 255 Ensembl identifiers are each claimed by two or more genes in NCBI Gene; the
+identifier stays only on a gene that is the one protein-coding claimant.
 
 The demonstration build used a panel of 113 human genes involved in food and drug metabolism, in
 seven groups from drug-metabolizing enzymes to taste and appetite receptors. NCBI Gene and
@@ -334,17 +345,21 @@ becomes several rows (2,828 of 23,201 are duplicates).
 
 ## Curation
 
-Across 15 translated sources, the active rows of the mapping files (those not under a skipped
-subject) are 124 `sure`, 64 `guess`, 38 `todo` and 309 `drop`. Of the 38 open rows, 21 are ClinVar genome coordinates, which are
-deferred. The shared rule file holds 449 rules with a recorded basis. 211 of them cite a stock
-HumanMine converter as evidence, and 18 rest on a match between an RDF term and an InterMine
-ontology term. So the stock converters, not term matching, supplied most of the mapping.
+They system has been set up to enable curation but due to time constraints curation was
+not carried out and information given is based on automated assignments.  Across 15
+translated sources, the active rows of the mapping files (those not under a skipped
+subject) are 124 `sure`, 64 `guess`, 38 `todo` and 309 `drop`. Of the 38 open rows, 21 are
+ClinVar genome coordinates, which are deferred. The shared rule file holds 449 rules with
+a recorded basis. 211 of them cite a stock HumanMine converter as evidence, and 18 rest on
+a match between an RDF term and an InterMine ontology term. So the stock converters, not
+term matching, supplied most of the mapping.
 
 ## What the real loads found
 
-Each source's first real load found problems that no earlier step had found, and the static check
-passed before every one of them. Table 3 groups them. Most were about identity: which key an
-object merges on, and whether the objects it links to can merge too.
+Each source's first real load found problems that no earlier step had found, and the
+static checks passed before every one of them. Table 3 describes the issues. Most were
+about identity: which key an object merges on, and whether the objects it links to can
+merge too.
 
 Table: Problems found by fetching and loading real data, grouped by kind. *Found* is the first
 stage that showed the problem: a full fetch, an InterMine load, or use of the running mine.
@@ -367,27 +382,29 @@ stage that showed the problem: a full fetch, an InterMine load, or use of the ru
 
 # Discussion
 
-The demonstration shows that the approach works from end to end. A HumanMine can be built from
-RDF Portal data through the datasets' own rdf-config models, with the mapping kept as reviewable
-data and no new Java code. It also shows what RDF Portal's review guidelines and rdf-config models
-were designed to allow: a third party reused the data automatically, for a purpose its providers
-did not plan. The result is a proof of concept, not a replacement for HumanMine. It loads nine sources,
-most of them limited to a panel of 113 genes, where HumanMine's 2022 release integrated about 40
-datasets, and it loads no genome coordinates. We hope the lessons below help others who try the same with other mines or other
-RDF collections.
+The demonstration shows that the approach works from end to end. A demonstration HumanMine
+can be built from RDF Portal data through the datasets' own rdf-config models, with the
+mapping kept as reviewable data and with no new Java code. It also demonstrates what RDF
+Portal's review guidelines and rdf-config models were designed to allow: a third party
+reused the data automatically, for a purpose its providers did not plan. The result is a
+proof of concept, not a replacement for HumanMine. It loads nine sources, most of them
+limited to a panel of 113 genes, where HumanMine's 2022 release integrated about 60
+datasets from around 30 data sources, and it loads no genome coordinates. We hope the
+lessons below help others who try the same with other mines or other RDF collections.
 
 ## Term matching and stock converters
 
-We expected the ontology terms in the InterMine model to drive most of the mapping, as the
-workflow proposed at the previous hackathon. They supplied few rules (18 of 449). The stock
-HumanMine converters supplied far more (211), because a rebuilt mine must agree with the existing
-one on identifiers and on what each field means. Three early decisions changed when we checked
-them against a converter or the live mine: a predicate matched by name to `Allele.reference` held
-the reference sequence, not the reference base; ClinVar's rdf-config identifier differs from the
-key HumanMine uses; and a filter to reviewed UniProt entries would have removed about 83% of
-HumanMine's human proteins. For anyone replacing an established loader, the behavior of that
-loader is the specification. Recording the basis of every mapping row made these changes cheap to
-find and to make.
+We expected the ontology terms in the InterMine model to drive most of the mapping, as in
+the workflow proposed at the previous hackathon. They supplied few rules (18 of 449). The
+stock HumanMine converters supplied far more (211), because a rebuilt mine must agree with
+the existing one on identifiers and on what each field means. Three early decisions
+changed when we checked them against a converter or the live mine: a predicate matched by
+name to `Allele.reference` held the reference sequence, not the reference base; ClinVar's
+rdf-config identifier differs from the key HumanMine uses; and a filter to reviewed
+UniProt entries would have removed about 83% of HumanMine's human proteins. For anyone
+replacing an established loader, the behavior of that loader is the
+specification. Recording the basis of every mapping row made these changes cheap to find
+and to make.
 
 ## What a translator needs from an rdf-config model
 
@@ -396,7 +413,7 @@ needs are not stated in them, and had to come from elsewhere. A model does not m
 predicate identifies a record; rdfc2im takes this from InterMine's integration keys. Example values
 listed under one predicate may be alternative shapes of one value, not separate values (PubMed's
 MeSH headings). Blank nodes can carry structural labels that look like data (ClinVar's location
-labels). One predicate can mix kinds of value: Reactome's comments hold both descriptions and
+labels). One predicate can mix different kinds of value: Reactome's comments hold both descriptions and
 curation notes, and Ensembl's `part_of` points at both a chromosome and an assembly. RDF Portal
 already uses its models to draw schema diagrams, to configure its GraphQL interface and to guide
 AI agents. Small additions, such as marking a record's identifier and whether examples are
@@ -426,13 +443,13 @@ if this were generated from the model the mine actually has.
 
 ## Public SPARQL endpoints for bulk extraction
 
-Endpoints differ in their limits and behavior, and the standard ways to page through results
-failed on them: a fixed limit on sorted results cut tables short without an error, and paging by
-comparing values returned wrong results. Batches of listed keys were reliable. This is not a fault
-of the services, which are built mainly for interactive queries; bulk extraction is a different
-use. But a client that extracts in bulk must check completeness, and ideally correctness, against
-the server's own counts. RDF Portal also offers its datasets as files, which may suit a full
-rebuild better than SPARQL.
+Endpoints differ in their limits and behavior, and the standard ways to page through
+results failed on them: a fixed limit on sorted results cut tables short without an error,
+and paging by comparing values returned wrong results. Batches of listed keys were
+reliable. This is not a fault of the services, which are built mainly for interactive
+queries; bulk extraction is a different use. Therefore a client that extracts in bulk must
+check completeness, and ideally correctness, against the server's own counts. RDF Portal
+also offers its datasets as files, which may suit a full rebuild better than SPARQL.
 
 ## A mine is built, not edited
 
