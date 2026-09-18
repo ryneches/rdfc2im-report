@@ -48,3 +48,9 @@ rdfconfig:
     note: Accessed 18 September 2026
     year: "2026"
   protect: [rdf-config, RDF, SPARQL]
+
+Matentzoglu2022SSSOM:
+  doi: 10.1093/database/baac035
+  protect: [SSSOM]
+  override:
+    pages: baac035
