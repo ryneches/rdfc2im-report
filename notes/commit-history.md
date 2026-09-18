@@ -515,12 +515,31 @@ Notes on phase 6:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-17 05:12 | `941c258` | Gos | Let a build be scoped to a taxon and/or a gene list, not just human |  |  |  |  |
-| 09-17 05:45 | `372a621` | Gos | Restrict ensembl to human, matching ncbigene's own taxon pattern |  |  |  |  |
-| 09-17 06:46 | `6bd357f` | Gos | Record the secondaryIdentifier-uniqueness finding from the hgnc trial as D14 |  |  |  |  |
-| 09-17 06:49 | `0e21e11` | Gos | Record the 113-gene food/drug-metabolism demo panel |  |  |  |  |
-| 09-17 08:19 | `54c9219` | Gos | Resolve the 255 ambiguous Ensembl-ID genes by keeping only a disambiguated winner |  |  |  |  |
-| 09-17 08:21 | `9a563af` | Gos | Wire up gene-panel scoping for hgnc/uniprot/clinvar/gwascatalog/ensembl |  |  |  |  |
+| 09-17 05:12 | `941c258` | Gos | Let a build be scoped to a taxon and/or a gene list, not just human | Limit a build to a species and/or a gene list, in one place | New `rdfc2im/scope.py` and `translate --taxon` / `--genes` (a list or `@file`), with a workspace default in `rdfc2im.yaml` (`scope: {taxon: [9606]}`). The restriction is applied in memory to a copy of the mapping rows after the mapping files are written, so the committed mapping never changes, and the default scope is an exact no-op. It rewrites the `value` of the query-level row for `Organism.taxonId` or `Gene.<field>` in every table, in the style the query already uses (`VALUES` for CURIEs, an OR of `FILTER(STR(?x) = ...)` for literals). A source whose taxon is only a constant (HGNC, ClinVar, GWAS Catalog: human-only data) is skipped for a non-human taxon rather than mislabelled. Gene lists restrict the source's required root-key field, so every table is filtered; symbols are resolved to NCBI Gene ids by a live query to the same endpoint. | design (demo build) + fetch (ensembl was unfiltered: 10,354,911 genes over 348 species) | Approach (build scope) |
+| 09-17 05:45 | `372a621` | Gos | Restrict ensembl to human, matching ncbigene's own taxon pattern | Restrict ensembl to human | ensembl's taxon predicate is now required with `value: taxonomy:9606`, the same form ncbigene uses, so every ensembl table filters to human (10.35 M -> 53,636 rows on the same query). Before, only a source constant said 9606, and every species would have been labelled human. | fetch | Results |
+| 09-17 06:46 | `6bd357f` | Gos | Record the secondaryIdentifier-uniqueness finding from the hgnc trial as D14 | Record that Ensembl ids in NCBI Gene are not unique (D14) | Documentation. 255 Ensembl gene ids in ncbigene's data are each claimed by two or more NCBI genes, so `Gene.key_secondaryidentifier_org` is not unique. Left open, and the panel avoids them. | load (hgnc full load) | superseded by `54c9219` |
+| 09-17 06:49 | `0e21e11` | Gos | Record the 113-gene food/drug-metabolism demo panel | Record the 113-gene food and drug metabolism demo panel | `curation/demo_gene_panel.txt`: 113 HGNC symbols in seven groups (phase I and II drug metabolism, transporters, drug targets, food and vitamin metabolism disorders, lipid and diet-gene interaction, taste and appetite). Each was checked against ncbigene's data; none is among the 255 ambiguous Ensembl ids. | design | Approach/Results (the demo build) |
+| 09-17 08:19 | `54c9219` | Gos | Resolve the 255 ambiguous Ensembl-ID genes by keeping only a disambiguated winner | Keep a shared Ensembl id only on a gene that a rule picks out; drop it elsewhere | New `resolve_key_ambiguity` in `items.py`, configured by `key_ambiguity` in `sources.yaml` (ncbigene: `Gene.secondaryIdentifier`, prefer `typeOfGene = protein-coding`). After a source's items are built, items of a class are grouped by (field value, organism). Where several share a value, the field stays only on the one holder the rule picks out; if the rule picks none or several, it is removed from all of them. All 255 groups (531 genes) are overlapping-transcript or antisense pairs; 49 groups have exactly one protein-coding member. Result: 49 genes keep the id, 482 lose it, `Gene.secondaryIdentifier` is unique. | load + reading (all 255 groups checked against typeOfGene) | Approach (ambiguous keys); Results |
+| 09-17 08:21 | `9a563af` | Gos | Wire up gene-panel scoping for hgnc/uniprot/clinvar/gwascatalog/ensembl | Extend gene-panel limiting to hgnc, uniprot, clinvar, gwascatalog and ensembl | Each source names its `gene_scope_field` in `sources.yaml`, and the CLI resolves the panel's symbols into that source's identifier scheme: NCBI Gene ids for ncbigene, hgnc and clinvar; Ensembl gene ids for ensembl and gwascatalog (a second live resolver); the symbol itself for uniprot. Where the gene link is optional in the mapping (ClinVar, GWAS Catalog, UniProt), limiting makes it required in the in-memory copy only. `@file` lists may hold several symbols per line. | load (running the demo build) | Approach (build scope) |
+
+Notes on phase 7:
+
+- **Build scope, for Approach.** A build is scoped by species and by gene list without editing the
+  mapping: the scope rewrites the query-level filter rows of an in-memory copy, after the mapping
+  files are written. Each source declares the field its genes are keyed on
+  (`gene_scope_field`), and the gene list is translated into that source's identifier scheme by
+  a live lookup. The demo build used: ncbigene and reactome in full; hgnc, ensembl, uniprot,
+  clinvar and gwascatalog limited to the panel; pubmed limited to the cited PMIDs (phase 8).
+- **Ambiguous keys, for Approach.** A field that InterMine uses as a merge key but that the source
+  data does not keep unique is repaired after items are built: keep it where a configured rule
+  picks one holder, remove it where none does. The same principle as dropping a row that fails a
+  required filter: when the data cannot be resolved cleanly, load less rather than merge wrongly.
+- **Open detail:** `9a563af` reports that HGNC's lookup resolved 106 of the 113 panel symbols to
+  NCBI ids. Which 7 failed, and whether they are in the mine through ncbigene, is not recorded.
+- **Discussion candidate (conceptual):** NCBI Gene's own Ensembl cross-references break one of
+  HumanMine's integration keys. This is upstream data, not a mapping error, and stock HumanMine
+  faces the same data. A generic loader has to detect where an upstream source violates a key
+  the mine assumes, and choose a rule.
 
 ### Phase 8. Per-source load trials
 
