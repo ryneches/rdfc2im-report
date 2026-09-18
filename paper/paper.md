@@ -101,7 +101,7 @@ generate SPARQL, and to configure its GraphQL and AI-agent interfaces.
 Together, these two resources suggest a different way to build a mine. If the structure of each
 source is already described in a machine-readable model, then the mapping from that model to the
 InterMine model can be written once, as data and not as code. One generic tool can then fetch,
-transform and load any source that has such a model. rdfc2im (rdf-config to InterMine) is that
+transform and load any source that has such a model (Figure \ref{fig:ecosystem}). rdfc2im (rdf-config to InterMine) is that
 tool. It aligns rdf-config models to the HumanMine data model and records each alignment in a
 mapping file that a curator can review. From the mapping it generates SPARQL queries, fetches the
 results, and writes InterMine Items XML for the stock InterMine loader. In this report we describe
@@ -109,6 +109,14 @@ rdfc2im and its use at the DBCLS BioHackathon 2026, where we built a working Hum
 of 113 food- and drug-metabolism genes from nine RDF sources, most of them on RDF Portal. We also
 record the problems that only a real InterMine load revealed, which static checks of the mapping
 did not.
+
+![How a mine gets its data. (a) Today each HumanMine source has its own loader, written and
+maintained as code by the mine's developers. (b) With RDF Portal and rdfc2im, the work for each
+dataset moves upstream: RDF Portal holds each dataset's RDF and an rdf-config model written in
+rdf-config's common form, made once and reused by every consumer. rdfc2im is one tool for all
+sources, and what remains for each source is a curated mapping, kept as data with the evidence
+for every row. Tags show scope (*per source*, *per dataset*, *shared*, *reused*), effort
+(*manual*, *automatic*) and form (*code*, *template*, *data*). \label{fig:ecosystem}](figure1-ecosystem.pdf){ width=100% }
 
 # Approach
 
@@ -122,7 +130,7 @@ curation decisions; everything else is regenerated.
 hackathon. Arrows show which step reads each input; the commands that run each step are in
 monospace.
 The curator edits the mapping files between runs, and a three-way merge keeps those edits when
-the mapping is regenerated. \label{fig:pipeline}](figure1-pipeline.pdf){ width=100% }
+the mapping is regenerated. \label{fig:pipeline}](figure2-pipeline.pdf){ width=100% }
 
 ## Inputs
 
@@ -283,11 +291,11 @@ The mine supports HumanMine's usual ways in. Keyword search finds genes by parti
 search for "cyp" returns the CYP family genes). Template queries work: three of HumanMine's own
 templates still apply to this smaller mine (two needed their default organism changed to human),
 and we added six for the panel. The BlueGenes report
-page for a panel gene shows data from every source on one page (Figure 2). List analysis works
+page for a panel gene shows data from every source on one page (Figure 3). List analysis works
 where the data exists: publication enrichment and chromosome distribution for the 113 panel genes,
 and publication enrichment for the 2,505 SNPs.
 
-<!-- TODO Figure 2 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
+<!-- TODO Figure 3 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
 showing NCBI Gene and HGNC identifiers, the Ensembl id, UniProt protein, ClinVar alleles, GWAS
 results and publications. Caption: one gene assembled from seven sources. -->
 

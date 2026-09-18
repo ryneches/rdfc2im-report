@@ -6,3 +6,6 @@ background/
 
 # Built by CI (download from the Actions run artifacts) or locally; never committed.
 paper/paper.pdf
+
+# Editor swap files.
+*.swp

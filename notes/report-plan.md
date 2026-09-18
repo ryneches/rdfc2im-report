@@ -125,7 +125,7 @@ The facts that matter to them, stated plainly in the normal flow of the report:
 
 ## To do on Gos's machine (where the demo mine runs)
 
-1. Capture Figure 2: the BlueGenes report page for CYP2D6.
+1. Capture Figure 3: the BlueGenes report page for CYP2D6.
 2. Item counts for HGNC, Ensembl, UniProt and ClinVar (Table 2).
 3. Confirm how UniProt was fetched: RDF Portal's SIB endpoint (as the generated queries say) or
    sparql.uniprot.org (as the `sources.yaml` comment says). Fix whichever is wrong.

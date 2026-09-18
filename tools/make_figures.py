@@ -2,10 +2,12 @@
 """Draw the report's figures into paper/.
 
 Usage: python3 tools/make_figures.py
-Needs matplotlib. Writes paper/figure1-pipeline.pdf (vector, fonts embedded) and a PNG preview.
+Needs matplotlib. Writes each figure as a vector PDF (fonts embedded) and a PNG preview.
 
-Figure 1: the rdfc2im pipeline - the four steps from the domestic hackathon workflow (models, map,
-extract, load), the inputs each takes, the files each writes, and the curator's loop.
+Figure 1 (figure1-ecosystem): how a mine gets its data today, and with RDF Portal and rdfc2im -
+which steps are custom or shared, manual or automatic, and where provenance lives.
+Figure 2 (figure2-pipeline): the rdfc2im pipeline - the four steps from the domestic hackathon
+workflow (models, map, extract, load), the inputs each takes, and the curator's loop.
 """
 from pathlib import Path
 
@@ -64,7 +66,7 @@ def labelled(ax, x, y, w, h, fill, edge, title, lines, title_color):
             linespacing=1.3)
 
 
-def figure1():
+def figure_pipeline():
     fig = plt.figure(figsize=(7.2, 4.2))
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0, 7.2)
@@ -113,11 +115,105 @@ def figure1():
     arrow(ax, (xs[3] + sw / 2, sy), (xs[3] + sw / 2, my + mh), color=OUT_EDGE, lw=1.3)
 
     OUT.mkdir(exist_ok=True)
-    fig.savefig(OUT / "figure1-pipeline.pdf")
-    fig.savefig(OUT / "figure1-pipeline.png", dpi=200)
+    fig.savefig(OUT / "figure2-pipeline.pdf")
+    fig.savefig(OUT / "figure2-pipeline.png", dpi=200)
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------- Figure 1: the ecosystem
+CUSTOM_FILL, CUSTOM_EDGE = "#fbe3d2", "#b5561c"     # custom code, one per source
+CURATED_FILL, CURATED_EDGE = "#fdf3e1", "#a8741a"   # curated data, one per source
+SHARED_FILL, SHARED_EDGE = STEP_FILL, STEP_EDGE      # shared infrastructure or generic tool
+PROV_INK = "#3d3d3d"
+
+
+def pill(ax, x, y, text, edge):
+    """A small tag at (x, y) = its left edge and vertical centre.  Returns its right edge."""
+    tx = ax.text(x, y, text, ha="left", va="center", fontsize=7.5, color=edge,
+                 bbox=dict(boxstyle="round,pad=0.22,rounding_size=0.3", fc="white", ec=edge, lw=0.8))
+    r = ax.figure.canvas.get_renderer()
+    bb = tx.get_window_extent(r).transformed(ax.transData.inverted())
+    return bb.x1 + 0.03          # the text's right edge plus the box padding
+
+
+def eco_box(ax, x, y, w, h, fill, edge, title, lines, tags):
+    box(ax, x, y, w, h, fill, edge, lw=1.1)
+    ax.text(x + 0.08, y + h - 0.10, title, ha="left", va="top", fontweight="bold", color=edge,
+            fontsize=9.5)
+    ax.text(x + 0.08, y + h - 0.36, "\n".join(lines), ha="left", va="top", color=INK,
+            fontsize=8.5, linespacing=1.3)
+    tx = x + 0.10
+    for tag in tags:
+        tx = pill(ax, tx, y + 0.16, tag, edge) + 0.10
+
+
+def figure_ecosystem():
+    W, H = 7.2, 5.3
+    fig = plt.figure(figsize=(W, H))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    ax.axis("off")
+
+    def panel_title(y, text):
+        ax.text(0.10, y, text, ha="left", va="center", fontsize=10.5, fontweight="bold", color=INK)
+
+    def provenance(y, lines):
+        ax.text(0.10, y, "Provenance:", ha="left", va="top", fontsize=8.5, fontweight="bold",
+                color=PROV_INK)
+        ax.text(1.02, y, "\n".join(lines), ha="left", va="top", fontsize=8.5, color=PROV_INK,
+                linespacing=1.3)
+
+    # (a) today --------------------------------------------------------------
+    panel_title(5.13, "(a)  HumanMine today")
+    ay, ah = 3.50, 1.30
+    eco_box(ax, 0.10, ay, 1.75, ah, INPUT_FILL, INPUT_EDGE, "Data providers",
+            ["NCBI Gene, HGNC,", "UniProt, GO, ClinVar,", "GWAS Catalog, ..."], ["own formats"])
+    for k in (2, 1):                                   # a stack: one loader per source
+        box(ax, 2.25 + 0.07 * k, ay + 0.07 * k, 2.60, ah, CUSTOM_FILL, CUSTOM_EDGE, lw=0.8)
+    eco_box(ax, 2.25, ay, 2.60, ah, CUSTOM_FILL, CUSTOM_EDGE, "One loader per source",
+            ["a Java converter or a format", "parser, written and maintained", "by the mine's developers"],
+            ["per source", "manual", "code"])
+    eco_box(ax, 5.25, ay, 1.85, ah, OUT_FILL, OUT_EDGE, "HumanMine",
+            ["integrated database,", "web application,", "REST API"], [])
+    arrow(ax, (1.85, ay + ah / 2), (2.25, ay + ah / 2), color=INK, lw=1.2)
+    arrow(ax, (5.00, ay + ah / 2), (5.25, ay + ah / 2), color=INK, lw=1.2)
+    provenance(3.32, ["a DataSet for each loader; how each value was derived",
+                      "is written in that loader's Java code"])
+
+    ax.plot([0.10, W - 0.10], [2.82, 2.82], color="#bbbbbb", lw=0.8)
+
+    # (b) this work ----------------------------------------------------------
+    panel_title(2.64, "(b)  With RDF Portal and rdfc2im")
+    by, bh = 1.12, 1.30
+    eco_box(ax, 0.10, by, 1.30, bh, INPUT_FILL, INPUT_EDGE, "Providers",
+            ["the same", "data"], [])
+    eco_box(ax, 1.60, by, 1.95, bh, SHARED_FILL, SHARED_EDGE, "RDF Portal",
+            ["RDF and an rdf-config", "model for each dataset;", "review; SPARQL"],
+            ["per dataset", "template", "reused"])
+    eco_box(ax, 3.75, by, 1.80, bh, SHARED_FILL, SHARED_EDGE, "rdfc2im",
+            ["one tool for all sources:", "queries, items, mine", "configuration"],
+            ["shared", "automatic"])
+    eco_box(ax, 5.75, by, 1.35, bh, OUT_FILL, OUT_EDGE, "HumanMine",
+            ["stock loader,", "no new Java"], [])
+    for x0, x1 in ((1.40, 1.60), (3.55, 3.75), (5.55, 5.75)):
+        arrow(ax, (x0, by + bh / 2), (x1, by + bh / 2), color=INK, lw=1.2)
+
+    # the curated mapping feeds rdfc2im from below
+    my_, mh_ = 0.08, 0.80
+    eco_box(ax, 3.75, my_, 3.35, mh_, CURATED_FILL, CURATED_EDGE, "Curated mapping",
+            ["one file per source; every row records its evidence"],
+            ["per source", "manual", "data"])
+    arrow(ax, (4.65, my_ + mh_), (4.65, by), color=CURATED_EDGE, lw=1.1)
+    provenance(0.86, ["reviewed RDF Portal dataset", "\u2192 mapping row (status,", "evidence) \u2192 item"])
+
+    OUT.mkdir(exist_ok=True)
+    fig.savefig(OUT / "figure1-ecosystem.pdf")
+    fig.savefig(OUT / "figure1-ecosystem.png", dpi=200)
     plt.close(fig)
 
 
 if __name__ == "__main__":
-    figure1()
-    print("wrote paper/figure1-pipeline.pdf and .png")
+    figure_ecosystem()
+    figure_pipeline()
+    print("wrote paper/figure1-ecosystem and paper/figure2-pipeline (.pdf, .png)")
