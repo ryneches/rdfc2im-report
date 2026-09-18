@@ -287,8 +287,10 @@ that carries identifiers and chromosome from NCBI Gene, the approved symbol and 
 from HGNC, and synonyms from both.
 
 Table: The sources of the demonstration build. *Role* says how the source relates to HumanMine's
-own source for the same data (see Approach). *Scope* says how much was loaded. Counts are from the
-load records in the repository (`LOAD-TRIAL.md`).
+own source for the same data (see Approach). *Scope* says how much was loaded. Counts for NCBI Gene,
+the Gene Ontology, Reactome, the GWAS Catalog and PubMed are from the load records in the
+repository (`LOAD-TRIAL.md`); counts for HGNC, Ensembl, UniProt and ClinVar were taken from each
+source's items file.
 
 | Source | Endpoint | Role | Scope | Loaded |
 |--------|----------|------|-------|--------|
@@ -317,9 +319,10 @@ for a panel gene shows data from every source on one page: for example, CYP2D6 c
 Gene and Ensembl identifiers, HGNC symbol and cytogenetic location, and UniProt proteins on one
 page, verified through the same REST query interface BlueGenes itself uses.
 
-![One of the panel's own templates, filtered to GWAS Catalog associations for a gene, with
-HumanMine's category filter (top) showing the added templates tagged alongside the three
-originals rather than left uncategorised.
+![The "GWAS associations for a gene" template, one of the six added for the panel, with its gene
+constraint left open (`*`), so the preview lists associations for every gene in the mine.
+HumanMine's category filter (top) shows the added templates tagged into the same categories as
+the three original templates.
 \label{fig:gwastemplate}](figure3-gwas-template.png){ width=100% }
 
 Some features are empty, and each gap traces to data that was not loaded rather than to a fault
