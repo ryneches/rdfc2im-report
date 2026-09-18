@@ -24,7 +24,7 @@ affiliations:
   - name: Institute for Chemical Research, Kyoto University, Kyoto, Japan
     ror: 02kpeqv85
     index: 1
-  - name: Database Center for Life Science, Chiba, Japan
+  - name: Database Division for Life Science, BioData Science Initiative, Research Organization of Information and Systems, National Institute of Genetics, Chiba, Japan
     ror: 018q2r417
     index: 2
   - name: Department of Genetics, University of Cambridge, Cambridge, UK
