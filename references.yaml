@@ -1,0 +1,50 @@
+# Source list for paper/paper.bib. Edit this file, then run:
+#
+#   python3 tools/make_bib.py
+#
+# Each entry is keyed by the citation key used in paper.md.
+#
+#   doi:       fetch the BibTeX record from doi.org (https://citation.crosscite.org/docs.html)
+#   protect:   words in the title to wrap in braces, so the citation style keeps their case
+#   override:  fields to set or replace after fetching (e.g. an article number doi.org omits)
+#   type, fields: a hand-written entry, for works with no DOI (websites, software)
+
+Smith2012InterMine:
+  doi: 10.1093/bioinformatics/bts577
+  protect: [InterMine]
+
+Kalderimis2014InterMine:
+  doi: 10.1093/nar/gku301
+  protect: [InterMine]
+
+Lyne2022HumanMine:
+  doi: 10.1093/database/baac054
+  protect: [HumanMine]
+  override:
+    pages: baac054
+
+Kawashima2018RDFPortal:
+  doi: 10.1093/database/bay123
+  protect: [NBDC, RDF]
+  override:
+    pages: bay123
+
+RDFPortal:
+  type: misc
+  fields:
+    title: RDF Portal
+    author: "{Database Center for Life Science}"
+    howpublished: \url{https://rdfportal.org/}
+    note: Accessed 18 September 2026
+    year: "2026"
+  protect: [RDF Portal]
+
+rdfconfig:
+  type: misc
+  fields:
+    title: "rdf-config: describe RDF models and generate SPARQL queries, schema charts and more"
+    author: "{Database Center for Life Science}"
+    howpublished: \url{https://github.com/dbcls/rdf-config}
+    note: Accessed 18 September 2026
+    year: "2026"
+  protect: [rdf-config, RDF, SPARQL]
