@@ -155,10 +155,9 @@ the InterMine and HumanMine repositories. rdfc2im reasons over the InterMine mod
 HumanMine's sources, plus a short list of model extensions that the project approved (for
 example, `Gene.typeOfGene` and `Pathway.description`). The third is the data itself, fetched from
 the endpoints that the rdf-config models name. In the demonstration build, every source came from
-RDF Portal except the GWAS Catalog, which came from TogoVar.
-
-<!-- TODO confirm with Gos: the UniProt queries name RDF Portal's SIB endpoint, but sources.yaml
-says sparql.uniprot.org. See notes/commit-history.md, phase 1. -->
+RDF Portal except the GWAS Catalog, which came from TogoVar. This includes UniProt: its queries
+are sent to RDF Portal's SIB mirror (`rdfportal.org/sib/sparql`), not to UniProt's own
+`sparql.uniprot.org`, which appears only as a named graph inside that RDF Portal dataset.
 
 ## Mapping
 
@@ -201,6 +200,13 @@ converter writes loads only as a `guess`. A choice that the converter does not s
 `todo`. Rules that apply across runs are kept in one reviewable file, with their evidence. When
 rdfc2im regenerates the mapping files, a three-way merge against its previous automatic output
 keeps every value that the curator changed.
+
+Using a standard mapping format pays off beyond loading: rdfc2im can project the SSSOM mapping
+back onto each source's own rdf-config model, producing a copy of that source's `model.yaml` with
+every rdf-config variable relabelled to the InterMine field it maps onto, in the same syntax
+rdf-config itself uses. This gives a curator, or an rdf-config maintainer, a one-file view of the
+whole mapping in the vocabulary they already read the source in, including which predicates are
+still unmapped and why.
 
 ## Extraction
 
@@ -289,27 +295,36 @@ load records in the repository (`LOAD-TRIAL.md`).
 | NCBI Gene | RDF Portal | replaces | all human genes | 193,288 genes |
 | Gene Ontology | RDF Portal | replaces | all terms | 48,340 terms |
 | Reactome | RDF Portal | alongside | all human pathways | 2,883 pathways |
-| HGNC | RDF Portal | replaces | gene panel | <!-- TODO --> |
-| Ensembl | RDF Portal | adds | gene panel | <!-- TODO --> |
-| UniProt | RDF Portal | alongside | gene panel | <!-- TODO --> |
-| ClinVar | RDF Portal | replaces | gene panel | <!-- TODO --> |
+| HGNC | RDF Portal | replaces | gene panel | 113 genes |
+| Ensembl | RDF Portal | adds | gene panel | 112 genes |
+| UniProt | RDF Portal | alongside | gene panel | 1,501 proteins |
+| ClinVar | RDF Portal | replaces | gene panel | 53,105 alleles |
 | GWAS Catalog | TogoVar | replaces | gene panel | 23,201 results, 2,505 SNPs |
 | PubMed | RDF Portal | adds | cited publications | 3,879 publications |
 
-<!-- TODO (Gos): item counts for HGNC, Ensembl, UniProt and ClinVar from the demo mine; confirm
-the UniProt endpoint (the generated queries name RDF Portal's SIB endpoint). -->
+Ensembl loads 112 of the 113 panel genes: one, *GSTT1*, has no Ensembl identifier in NCBI Gene's
+own cross-reference data, a gap confirmed against NCBI's records rather than an artifact of this
+build (a known consequence of *GSTT1*'s common deletion polymorphism). It is otherwise in the mine
+through NCBI Gene, HGNC and ClinVar.
 
 The mine supports HumanMine's usual ways in. Keyword search finds genes by partial symbol (a
-search for "cyp" returns the CYP family genes). Template queries work: three of HumanMine's own
-templates still apply to this smaller mine (two needed their default organism changed to human),
-and we added six for the panel. The BlueGenes report
-page for a panel gene shows data from every source on one page (Figure 3). List analysis works
-where the data exists: publication enrichment and chromosome distribution for the 113 panel genes,
-and publication enrichment for the 2,505 SNPs.
+search for "cyp" returns the CYP family genes). Template queries work (Figure \ref{fig:gwastemplate}):
+three of HumanMine's own templates still apply to this smaller mine (two needed their default
+organism changed to human), and we added six for the panel, each tagged into HumanMine's own
+category filter (Genomics, Proteins, Literature, GWAS, Gene Ontology, Disease, Variant) so they
+appear alongside the originals rather than as an unsorted extra group. The BlueGenes report page
+for a panel gene shows data from every source on one page.
 
-<!-- TODO Figure 3 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
+<!-- TODO Figure 4 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
 showing NCBI Gene and HGNC identifiers, the Ensembl id, UniProt protein, ClinVar alleles, GWAS
-results and publications. Caption: one gene assembled from seven sources. -->
+results and publications. Caption: one gene assembled from seven sources. Not yet captured -
+figure3-gwas-template.png (below) shows a different thing (a template query, not a gene report
+page) and does not substitute for this one. -->
+
+![One of the panel's own templates, filtered to GWAS Catalog associations for a gene, with
+HumanMine's category filter (top) showing the added templates tagged alongside the three
+originals rather than left uncategorised.
+\label{fig:gwastemplate}](figure3-gwas-template.png){ width=100% }
 
 Some features are empty, and each gap traces to data that was not loaded rather than to a fault
 in the interface. There are no genome coordinates, so the chromosome distribution for SNPs and
