@@ -113,13 +113,16 @@ did not.
 # Approach
 
 rdfc2im is a command-line tool written in Python. It follows the four steps of the workflow set
-out at the previous DBCLS hackathon (Figure 1): prepare the two data models, map
+out at the previous DBCLS hackathon (Figure \ref{fig:pipeline}): prepare the two data models, map
 one onto the other, extract the data with SPARQL, and load it into InterMine. Each step writes
 plain text files that a person can read. Under version control there are only inputs and
 curation decisions; everything else is regenerated.
 
-<!-- TODO Figure 1: the four-step pipeline, redrawn from the domestic hackathon slide 2, with the
-files each step reads and writes. Label: fig:pipeline. -->
+![The rdfc2im pipeline. The four steps follow the workflow proposed at the previous DBCLS
+hackathon. Arrows show which step reads each input; the commands that run each step are in
+monospace.
+The curator edits the mapping files between runs, and a three-way merge keeps those edits when
+the mapping is regenerated. \label{fig:pipeline}](figure1-pipeline.pdf){ width=100% }
 
 ## Inputs
 
