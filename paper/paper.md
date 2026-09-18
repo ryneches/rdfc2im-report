@@ -87,14 +87,14 @@ Integrative analysis in biology depends on bringing independent databases
 together, so that the evidence can be queried in one place. Evidence might
 pertain to genes, proteins, organisms, diseases, or ecological relationships.
 InterMine is an open-source data warehouse system built for this purpose
-[@citesAsAuthority:Smith2012InterMine].  From one object model, based on the Sequence
-Ontology, InterMine generates a web interface, a query builder, a template search
-capability, list analysis with enrichment statistics, and a REST API with client libraries
-in several commonly used languages [@citesAsAuthority:Kalderimis2014InterMine]. HumanMine
-is the InterMine instance for human data. Its 2022 release integrated over 60 datasets
-from over 30 sources, among them NCBI Gene, HGNC, UniProt, the Gene Ontology, Reactome,
-ClinVar and the GWAS Catalog, into one searchable database
-[@citesAsAuthority:Lyne2022HumanMine].
+[@citesAsAuthority:Smith2012InterMine].  From one object model, InterMine
+generates a web interface, a query builder, a template search capability, list
+analysis with enrichment statistics, and a REST API with client libraries in
+several commonly used languages [@citesAsAuthority:Kalderimis2014InterMine].
+HumanMine is the InterMine instance for human data. Its 2022 release integrated
+over 60 datasets from over 30 sources, among them NCBI Gene, HGNC, UniProt, the
+Gene Ontology, Reactome, ClinVar and the GWAS Catalog, into one searchable
+database [@citesAsAuthority:Lyne2022HumanMine].
 
 A key cost of a mine is in keeping its data current. Each source reaches the warehouse
 through its own loader: a parser for a standard format, a custom Java converter, or a file
