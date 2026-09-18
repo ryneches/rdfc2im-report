@@ -484,10 +484,32 @@ Notes on phase 5:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 16:43 | `65ac575` | Gos | Force a fresh file for fork-sync's generated resources, not an overwrite |  |  |  |  |
-| 09-17 03:03 | `d603516` | Gos | Stop silently truncating tables past Virtuoso's 200000-row page cap |  |  |  |  |
-| 09-17 03:57 | `ef5e40b` | Gos | Page past the 200000-row cap by batching over the required key domain |  |  |  |  |
-| 09-17 04:58 | `1094e25` | Gos | Raise the batched-fetch default from 500 to 1000 keys per request |  |  |  |  |
+| 09-16 16:43 | `65ac575` | Gos | Force a fresh file for fork-sync's generated resources, not an overwrite | Delete generated loader files before copying new ones | `make fork-sync` removes the old keys and additions files before copying. On the trial machine's mounted file system, `cp` onto an existing file silently wrote zeros (4,670 bytes of `\0`), which would ship a loader jar with an empty model silently. | load (re-running fork-sync) | omit (environment-specific) |
+| 09-17 03:03 | `d603516` | Gos | Stop silently truncating tables past Virtuoso's 200000-row page cap | Report a table cut off by Virtuoso's sorted-row limit as partial, not complete | Virtuoso refuses any `ORDER BY` + `LIMIT/OFFSET` request past 200,000 rows (error SR353). The page that crossed the limit used to fail like any page and the truncated file was treated as complete. `_fetch_paged` now stops before the refused request and returns `partial`. Three ncbigene tables crossed it; `main_gene_synonym` lost 39,974 of 239,974 rows (16.7%). A keyset alternative (`FILTER(?id > last)`) was built and dropped: on RDF Portal it returned wrong results for plain-literal comparisons (`> "1"` excluded "2"-"9"), which would have silently lost 28,487 of 193,288 genes. | fetch (first full ncbigene extract) | Approach via `ef5e40b`; Discussion (keyset paging failed on literal comparison) |
+| 09-17 03:57 | `ef5e40b` | Gos | Page past the 200000-row cap by batching over the required key domain | Fetch tables past the limit in batches over their own key values | Before paging, a `COUNT(*)` over the query's own `SELECT DISTINCT` checks whether the table exceeds the limit. If so, rdfc2im takes the query's required (non-OPTIONAL) patterns, fetches the distinct values of its first SELECT variable (the root key), and fetches the table in `VALUES` batches of those keys, with no `ORDER BY` or `OFFSET`. Equality in `VALUES` is reliable on the endpoint where `<`/`>` is not. A table whose key is only inside an OPTIONAL is not batched; it falls back to the partial report. The three ncbigene tables now match the server counts exactly (265,514, 247,254 and 239,974 rows). | fetch | Approach (fetch strategy) |
+| 09-17 04:58 | `1094e25` | Gos | Raise the batched-fetch default from 500 to 1000 keys per request | Use 1,000 keys per batch, from a live benchmark | On ncbigene the cost per key rises with batch size (0.54 ms at 500, 0.68 at 1,000, 1.35 at 2,000, 1.73 at 4,000), and 5,000 fails with Virtuoso's argument-count limit (SP030). With the 1 s pause between requests, 1,000 is fastest overall (about 5.4 min for 193,289 genes vs 8.2 at 500). One constant, `DEFAULT_BATCH_SIZE`. | fetch (benchmark) | Approach (one sentence); Results (numbers) |
+
+Notes on phase 6:
+
+- **The final fetch strategy (for Approach),** combining this phase with `898fd63`/`db4969a`
+  (phase 8, TogoVar) and `fetch_source_by_keys` (`8983190`, PubMed):
+  1. Each table is one query, paged with `ORDER BY` on its first variable and
+     `LIMIT`/`OFFSET` (5,000 rows per page by default).
+  2. A `COUNT(*)` first checks the table against the endpoint's sorted-row limit (200,000 on RDF
+     Portal). A table over it is fetched in `VALUES` batches of 1,000 root keys instead, taken
+     from the query's own required patterns.
+  3. An endpoint with a smaller limit is caught when its error appears during paging (TogoVar:
+     10,000); the same batching takes over and the partial pages are discarded.
+  4. A source can also be restricted at fetch time to a key list from elsewhere (PubMed to the
+     PMIDs the other sources cite), through the same batching.
+  5. Anything that still cannot complete is reported as `partial`, never as complete.
+- **Discussion candidate (conceptual):** the endpoint's behavior, not SPARQL, set the fetch
+  design. Two standard paging methods failed on the real service: `OFFSET` hits a hard limit on
+  sorted results, and keyset paging returned wrong answers for literal comparisons. Only
+  equality (`VALUES`) was reliable. A bulk client of a public SPARQL service has to check both
+  completeness and correctness against the server's own counts.
+- `65ac575` is an environment problem (a mounted file system on the trial machine) and can be
+  omitted.
 
 ### Phase 7. Limiting a build (species, gene panel)
 
