@@ -24,7 +24,7 @@ affiliations:
   - name: Institute for Chemical Research, Kyoto University, Kyoto, Japan
     ror: 02kpeqv85
     index: 1
-  - name: Database Center for Life Science, Chiba, Japan
+  - name: National Institute of Genetics, Chiba, Japan
     ror: 018q2r417
     index: 2
   - name: Department of Genetics, University of Cambridge, Cambridge, UK
@@ -50,7 +50,7 @@ authors_short: Russell Y. Neches \emph{et al.}
 InterMine databases such as HumanMine integrate many biological data sources, but each
 source needs its own loader, and keeping those loaders current is costly. The public
 HumanMine has not had a data release since February 2022. RDF Portal, operated by the
-Database Center for Life Science, now serves many of the same sources as reviewed RDF, and
+Database Division for Life Science, now serves many of the same sources as reviewed RDF, and
 describes each dataset with an rdf-config model. At the DBCLS BioHackathon 2026 we
 developed rdfc2im, a tool that maps rdf-config models onto the InterMine data model, keeps
 the mapping as reviewable data with the evidence for every row, uses RDF Config to
@@ -103,7 +103,7 @@ dozens of such dependencies. The cost of this maintenance is one reason that the
 HumanMine still reports its release as 12 February 2022.
 
 Many of the same sources are now available from one service, in one format. RDF Portal, operated by
-the Database Center for Life Science (DBCLS), hosts life science datasets in RDF behind public
+the Database Division for Life Science (DBCLS), hosts life science datasets in RDF behind public
 SPARQL endpoints [@citesAsDataSource:RDFPortal]. It began as the NBDC RDF portal, which reviewed
 each submitted dataset against guidelines for interoperability: typed primary resources,
 human-readable labels, local identifiers in `dcterms:identifier`, and identifiers.org URIs for
