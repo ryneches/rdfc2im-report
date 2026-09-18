@@ -9,6 +9,9 @@ found, and which section of the report it feeds.
 - Hashes are rdfc2im commits (`github.com/intermineorg/rdfc2im`).
 - The two merge commits (`0c7f6c0`, `e18c595`) each bring in one commit that is listed on its own.
   The report-pointer commits (`94a7b91` onward) are left out.
+- **Writing rule.** Approach describes the end product, not the history. A rule that a later
+  commit replaced is marked *superseded by `<hash>`* in the "feeds" column; it goes to Discussion
+  only if it shows a conceptual point, and is otherwise left to this history.
 - "Found by" is one of: *design* (written before any run), *reading* (reading InterMine or
   converter code), *fetch* (a live SPARQL fetch), *load* (a real InterMine build or load), *use*
   (using the running mine).
@@ -371,21 +374,39 @@ Notes on phase 2:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 14:14 | `23f1ec4` | Russell | Let knowledge.yaml decide a subject's role |  |  |  |  |
-| 09-16 14:15 | `56fb5ca` | Russell | Warn when a replaced stock source loses data |  |  |  |  |
-| 09-16 14:15 | `d173d32` | Russell | Stop two sources misdescribing what they load |  |  |  |  |
-| 09-16 14:59 | `536807f` | Russell | Skip the 22 unbound subjects that have no InterMine target |  |  |  |  |
-| 09-16 14:59 | `8e6e902` | Russell | Map OBO xrefs and alternative ids the way stock HumanMine loads them |  |  |  |  |
-| 09-16 14:59 | `8d3c5ba` | Russell | Drop ontology annotation properties the stock OBO parser never reads |  |  |  |  |
-| 09-16 14:59 | `00054ec` | Russell | Stop writing the reference sequence into Allele.reference |  |  |  |  |
-| 09-16 14:59 | `05926b4` | Russell | Correct the provenance of ClinVar's VCV allele identifier |  |  |  |  |
-| 09-16 14:59 | `9a3f6af` | Russell | Drop ClinVar fields the stock converter never writes |  |  |  |  |
-| 09-16 14:59 | `3e3c104` | Russell | Curate GWAS Catalog rows against HugeGwasConverter |  |  |  |  |
-| 09-16 14:59 | `cc9c603` | Russell | Retract the advice to filter UniProt to Swiss-Prot |  |  |  |  |
-| 09-16 14:59 | `b10305e` | Russell | Curate remaining UniProt rows against UniprotConverter |  |  |  |  |
-| 09-16 14:59 | `79380ee` | Russell | Drop MeSH descriptor fields MeshTerm cannot hold |  |  |  |  |
-| 09-16 14:59 | `ca02a06` | Russell | Drop PubMed fields update-publications does not fill |  |  |  |  |
-| 09-16 14:59 | `8169602` | Russell | Settle the remaining Reactome, NCBI Gene, HGNC and deferred rows |  |  |  |  |
+| 09-16 14:14 | `23f1ec4` | Russell | Let knowledge.yaml decide a subject's role | Let a `knowledge.yaml` entry set a subject's role (root, node, skip) | A knowledge subject entry may carry `role`, with the same precedence as class binding (source-specific by name, then by type). A role in `mapping_subjects.tsv` still wins. So a decision such as "skip MeSH TreeNumber" lives in `knowledge.yaml` with its evidence, and `human` status stays reserved for the curator's own edits. | design (curation) | Approach (curation: where decisions live) |
+| 09-16 14:15 | `56fb5ca` | Russell | Warn when a replaced stock source loses data | Report what a replaced stock source declares that its replacement never writes | `check` compares each replaced stock source's `_additions.xml` with what the replacing source writes (explicit columns, inferred links, and the reverse of each link) and names the gap. It is a proxy: declaring a field is not proof of loading it. | reading (expressionatlas replaced atlas-express while loading only DataSet metadata) | Approach (replacement check); rule superseded by `2ffdbe4` (notes -> hard problems) |
+| 09-16 14:15 | `d173d32` | Russell | Stop two sources misdescribing what they load | Stop expressionatlas replacing atlas-express; retitle the UniProt dataset | expressionatlas adds data and replaces nothing: it loads only DataSet name and description, while stock atlas-express loads every AtlasExpression. The UniProt dataset title no longer says Swiss-Prot, because the queries do not filter on `up:reviewed` and return TrEMBL too (as stock HumanMine does). | reading | Approach (source table); Results |
+| 09-16 14:59 | `536807f` | Russell | Skip the 22 unbound subjects that have no InterMine target | Mark the 22 subjects with no InterMine target as `skip`, with the evidence | `role: skip` in `knowledge.yaml` for MeSH record types MeshTerm cannot hold (11), the Expression Atlas experiment hierarchy (7, deferred as D10), Ensembl transcript and exon nodes (2), HomoloGene's Dataset (1) and Reactome's RelationshipXref (1, Pathway is not a BioEntity). Skipping prunes their subtrees. | reading (the model) | Results (curation); Approach only as an example of `skip` |
+| 09-16 14:59 | `8e6e902` | Russell | Map OBO xrefs and alternative ids the way stock HumanMine loads them | Map OBO xrefs and alternative ids as the stock OBO loader does | `hasDbXref` -> `OntologyTerm.crossReferences` (identifier-only OntologyTerms, as stock) and `hasAlternativeId` -> an `OntologyTermSynonym` of type `alt_id`, for go, hpo, mp and uberon. | reading (OboParser, OboConverter) | Results (curation) |
+| 09-16 14:59 | `8d3c5ba` | Russell | Drop ontology annotation properties the stock OBO parser never reads | Drop ontology annotation properties the stock OBO parser never reads | Stock OboParser reads only id, name, namespace, def, is_obsolete, is_a, alt_id, xref and synonyms; `OntologyTerm` has no field for the rest. Dropped comment, replaced_by, created_by, creation date, contributor and 41 annotation properties (mostly Uberon's). `inSubset` stays open (D2). Ontology `todo` rows 64 -> 3. | reading (OboParser) | Results (curation) |
+| 09-16 14:59 | `00054ec` | Russell | Stop writing the reference sequence into Allele.reference | Stop writing the reference sequence IRI into Allele.reference | `faldo:reference` had matched `Allele.reference` by name and was marked `sure`, but its value is the reference-sequence IRI (`hco/12#GRCh37`), not the reference base. Dropped; `med2rdf:reference_allele` keeps the field. | fetch (fetched values) | Results (a name match that was wrong); Discussion (name matching) |
+| 09-16 14:59 | `05926b4` | Russell | Correct the provenance of ClinVar's VCV allele identifier | Record that ClinVar's VCV accession is rdf-config's identifier, not the stock converter's | `cvo:accession` -> `Allele.primaryIdentifier` had claimed `java:ClinvarConverter` as basis, but stock uses the numeric AlleleID. The basis was corrected to `rdfconfig:model`, with a note that loading VCVs would change every Allele identifier. | reading (ClinvarConverter) | superseded by `0f785f6` (AlleleID primary, VCV secondary); Discussion (identifier schemes) |
+| 09-16 14:59 | `9a3f6af` | Russell | Drop ClinVar fields the stock converter never writes | Drop the ClinVar fields the stock converter never writes | Stock ClinvarConverter writes only Allele primaryIdentifier, type, clinicalSignificance, reference, alternate, organism, gene and diseases. Dropped record bookkeeping, RCV records, allele frequency, a duplicate count, and gene fields that ncbi-gene and hgnc own. Coordinates (D13) and disease ids (D5) stay `todo`. ClinVar `todo` 44 -> 22. | reading (ClinvarConverter) | Results (curation) |
+| 09-16 14:59 | `3e3c104` | Russell | Curate GWAS Catalog rows against HugeGwasConverter | Curate the GWAS Catalog against the stock HugeGwasConverter | Dropped 25 fields stock never writes (coordinates, flanking genes, effect sizes, QC and platform text) and 4 duplicates. Two left open: which gene field to use, and the study name (D12). `todo` 31 -> 2. | reading (HugeGwasConverter) | Results (curation); the gene question is settled by `3fc17dd` |
+| 09-16 14:59 | `cc9c603` | Russell | Retract the advice to filter UniProt to Swiss-Prot | Do not filter UniProt to Swiss-Prot | A note had advised a `reviewed=1` filter on the belief that stock loads only reviewed entries. Stock `loadtrembl` defaults to true and HumanMine keeps it: live HumanMine has 117,219 human proteins, Swiss-Prot 20,431. The filter would have removed about 83%. `reviewed` is dropped as a field and not used as a filter. | reading (UniprotConverter, live HumanMine) | Results; Discussion (checking assumptions against stock) |
+| 09-16 14:59 | `b10305e` | Russell | Curate remaining UniProt rows against UniprotConverter | Curate the remaining UniProt rows against UniprotConverter | Submitted EC numbers -> `ECNumber.identifier`; citation details, gene aliases and IntAct links dropped (stock stores only pubMedId, protein synonyms, and D6 settles IntAct). Alternative EC and CD-antigen/allergen names left open because of a column collision. | reading (UniprotConverter) | Results (curation); the collision is fixed by `bee6405`, the names load in `4e80856` |
+| 09-16 14:59 | `79380ee` | Russell | Drop MeSH descriptor fields MeshTerm cannot hold | Drop MeSH descriptor fields that MeshTerm cannot hold | MeshTerm has only name and publications (plus the approved `identifier`). Twelve descriptor fields dropped. MeSH `todo` 12 -> 0. | reading (the model) | Results (curation) |
+| 09-16 14:59 | `ca02a06` | Russell | Drop PubMed fields update-publications does not fill | Drop PubMed fields that update-publications does not fill | Stock fills 12 Publication fields, none of ISSN, eISSN, NLM journal id, language, place, provenance or update date. Publication-type and supplementary-concept MeSH links dropped (the mesh source skips those record types). Open: end page (no two-column transform) and a second topical descriptor (collision). | reading (EntrezPublicationsRetriever) | Results (curation) |
+| 09-16 14:59 | `8169602` | Russell | Settle the remaining Reactome, NCBI Gene, HGNC and deferred rows | Settle the remaining Reactome, NCBI Gene, HGNC and deferred rows | Reactome publication details and xref comment/version dropped; ncbigene locus tag, nomenclature status and feature type dropped (NcbiGeneConverter reads none); HGNC approval status dropped; deferred rows (D1, D7, D10) given narrower notes. Open `todo` rows across all sources 199 -> 42. | reading | Results (curation totals) |
+
+Notes on phase 3:
+
+- **The method (for Approach).** Only `23f1ec4` and `56fb5ca` change code. The other 13 commits are
+  curation decisions, written into `knowledge.yaml` with a `basis` and a note. The rule they apply:
+  the stock HumanMine converter for a source is the reference. A field it writes is mapped (`sure`,
+  basis `java:<Converter>`); a field it never writes, or that the model cannot hold, is dropped
+  with the reason; a field beyond stock is loaded only as `guess`; a real choice that stock does
+  not settle stays `todo` with a spec decision number (D1-D14). Decisions live in `knowledge.yaml`,
+  not as `human` edits in the mapping files, so `human` keeps meaning "the curator changed this".
+- **Result.** Open `todo` rows went from 199 to 42 in this phase. The current STATUS.md (17 Sep)
+  totals 124 `sure`, 64 `guess`, 38 `todo` and 309 `drop` active rows over 15 sources; 21 of the
+  38 `todo` are ClinVar (mostly coordinates, D13).
+- **Checking assumptions against stock.** Three decisions reversed an earlier belief after the
+  converter code or the live mine was read: `faldo:reference` (a name match with the wrong
+  meaning), the ClinVar identifier (`05926b4`, finally `0f785f6`), and the Swiss-Prot filter
+  (`cc9c603`). This is a Discussion point: evidence from the stock converter beat both name
+  matching and general knowledge.
 
 ### Phase 4. Items and linking correctness
 
