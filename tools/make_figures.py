@@ -8,6 +8,8 @@ Figure 1 (figure1-ecosystem): how a mine gets its data today, and with RDF Porta
 which steps are custom or shared, manual or automatic, and where provenance lives.
 Figure 2 (figure2-pipeline): the rdfc2im pipeline - the four steps from the domestic hackathon
 workflow (models, map, extract, load), the inputs each takes, and the curator's loop.
+slides/ecosystem.pdf: Figure 1 redrawn at slide size for the lightning talk, with fewer, larger
+words (the paper's version is unreadable when shrunk onto a slide).
 """
 from pathlib import Path
 
@@ -213,7 +215,51 @@ def figure_ecosystem():
     plt.close(fig)
 
 
+def figure_ecosystem_slide():
+    """Figure 1 for the lightning talk: the same two rows, sized for a 16:9 beamer frame, so the
+    text stays at projection size (the paper's version shrinks to about 4 pt on a slide)."""
+    W, H = 5.9, 2.5
+    fig = plt.figure(figsize=(W, H))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    ax.axis("off")
+    bh = 0.80
+    hx, hw = 4.80, 1.08                                # HumanMine, same place in both rows
+
+    ay = 1.45
+    ax.text(0.02, ay + bh + 0.14, "Today", ha="left", va="center", fontsize=10.5,
+            fontweight="bold", color=INK)
+    eco_box(ax, 0.02, ay, 0.93, bh, INPUT_FILL, INPUT_EDGE, "Providers", ["own formats"], [])
+    for k in (2, 1):
+        box(ax, 1.15 + 0.05 * k, ay + 0.05 * k, 3.35, bh, CUSTOM_FILL, CUSTOM_EDGE, lw=0.8)
+    eco_box(ax, 1.15, ay, 3.35, bh, CUSTOM_FILL, CUSTOM_EDGE, "One loader per source",
+            ["a Java converter, written and maintained by hand"], ["per source", "code"])
+    eco_box(ax, hx, ay, hw, bh, OUT_FILL, OUT_EDGE, "HumanMine", [], [])
+    arrow(ax, (0.95, ay + bh / 2), (1.15, ay + bh / 2), color=INK, lw=1.2)
+    arrow(ax, (4.60, ay + bh / 2), (hx, ay + bh / 2), color=INK, lw=1.2)
+
+    by = 0.10
+    ax.text(0.02, by + bh + 0.14, "With RDF Portal and rdfc2im", ha="left", va="center",
+            fontsize=10.5, fontweight="bold", color=INK)
+    eco_box(ax, 0.02, by, 0.93, bh, INPUT_FILL, INPUT_EDGE, "Providers", ["same data"], [])
+    eco_box(ax, 1.15, by, 1.55, bh, SHARED_FILL, SHARED_EDGE, "RDF Portal",
+            ["RDF + rdf-config"], ["shared", "reused"])
+    eco_box(ax, 2.90, by, 1.75, bh, SHARED_FILL, SHARED_EDGE, "rdfc2im",
+            ["one tool, all sources"], ["automatic", "mapping = data"])
+    eco_box(ax, hx, by, hw, bh, OUT_FILL, OUT_EDGE, "HumanMine", ["stock loader"], [])
+    for x0, x1 in ((0.95, 1.15), (2.70, 2.90), (4.65, hx)):
+        arrow(ax, (x0, by + bh / 2), (x1, by + bh / 2), color=INK, lw=1.2)
+
+    out = ROOT / "slides"
+    out.mkdir(exist_ok=True)
+    fig.savefig(out / "ecosystem.pdf")
+    fig.savefig(out / "ecosystem.png", dpi=200)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     figure_ecosystem()
     figure_pipeline()
-    print("wrote paper/figure1-ecosystem and paper/figure2-pipeline (.pdf, .png)")
+    figure_ecosystem_slide()
+    print("wrote paper/figure1-ecosystem, paper/figure2-pipeline and slides/ecosystem (.pdf, .png)")

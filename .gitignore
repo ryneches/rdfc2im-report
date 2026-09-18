@@ -6,3 +6,18 @@ background/
 
 # Editor swap files.
 *.swp
+
+# Build scaffolding for the slides, superseded by the slides themselves.
+slides/DESIGN.md
+
+# Python bytecode.
+__pycache__/
+
+# LaTeX build files for the slides.
+slides/*.aux
+slides/*.log
+slides/*.nav
+slides/*.out
+slides/*.snm
+slides/*.toc
+slides/*.vrb
