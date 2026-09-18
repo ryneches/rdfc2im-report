@@ -12,6 +12,8 @@ found, and which section of the report it feeds.
 - **Writing rule.** Approach describes the end product, not the history. A rule that a later
   commit replaced is marked *superseded by `<hash>`* in the "feeds" column; it goes to Discussion
   only if it shows a conceptual point, and is otherwise left to this history.
+- "Feeds" names a report section: Approach, Results, Discussion, **Future Work**, or *omit*.
+  Open questions are also collected in the "Future Work" list at the end of this file.
 - "Found by" is one of: *design* (written before any run), *reading* (reading InterMine or
   converter code), *fetch* (a live SPARQL fetch), *load* (a real InterMine build or load), *use*
   (using the running mine).
@@ -545,28 +547,43 @@ Notes on phase 7:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-17 04:58 | `41ee6a8` | Gos | Raise Postgres max_connections for the have.file.xml.tgt loader |  |  |  |  |
-| 09-17 05:11 | `8185114` | Gos | Transliterate non-ASCII attribute values for the InterMine items loader |  |  |  |  |
-| 09-17 05:55 | `059ee5f` | Gos | Record the hgnc load trial: three bugs, one systemic finding, one confirmed merge |  |  |  |  |
-| 09-17 08:32 | `998c455` | Gos | Stop double-keying Ensembl genes on their own Ensembl id |  |  |  |  |
-| 09-17 08:37 | `8f49123` | Gos | Try every single-field key a class has, not just the model-wide one |  |  |  |  |
-| 09-17 08:41 | `819309d` | Gos | Deduplicate resolve_ensembl_symbols by label: one gene per symbol |  |  |  |  |
-| 09-17 08:43 | `acb1ba8` | Gos | Filter Ensembl's part_of column to real chromosomes, not the assembly too |  |  |  |  |
-| 09-17 08:46 | `041b3ad` | Gos | Generate priorities for every source's reference fields, not just alongside ones |  |  |  |  |
-| 09-17 08:59 | `a67ce39` | Gos | Attach uniprot's Gene sub-object to its Organism, not just Protein |  |  |  |  |
-| 09-17 09:53 | `52f3b7c` | Gos | Attach clinvar's Gene sub-object to its Organism too, proactively |  |  |  |  |
-| 09-17 10:00 | `bd3d198` | Gos | Retry as POST at the redirect target when a redirected POST's GET URL would be too long |  |  |  |  |
-| 09-17 10:05 | `1794061` | Gos | Fix Host header leaking into the redirect-target POST retry |  |  |  |  |
-| 09-17 10:08 | `043664b` | Gos | Suffix-match gene-scope terms against fields whose raw SPARQL value is an IRI |  |  |  |  |
-| 09-17 10:13 | `898fd63` | Gos | React to a Sorted TOP cap discovered mid-paging, not just the upfront estimate |  |  |  |  |
-| 09-17 10:15 | `db4969a` | Gos | Stop trying GET after a Sorted TOP cap hit instead of masking it |  |  |  |  |
-| 09-17 10:21 | `56e3224` | Gos | Drop a value that does not parse as its declared numeric type instead of writing it |  |  |  |  |
-| 09-17 10:23 | `7477073` | Gos | Record the gwascatalog load trial findings |  |  |  |  |
-| 09-17 10:32 | `d1ade30` | Gos | Give key_attributes() the same no-curated-key fallback as key_attribute() |  |  |  |  |
-| 09-17 10:46 | `e840fec` | Gos | Record the reactome load trial findings |  |  |  |  |
-| 09-17 10:48 | `8378aa0` | Gos | Add PMID-based build scoping for PubMed |  |  |  |  |
-| 09-17 10:53 | `8983190` | Gos | Switch PubMed's PMID scoping from FILTER-embedding to fetch-time VALUES-batching |  |  |  |  |
-| 09-17 10:57 | `18d135d` | Gos | Record the pubmed load trial findings |  |  |  |  |
+| 09-17 04:58 | `41ee6a8` | Gos | Raise Postgres max_connections for the have.file.xml.tgt loader | Raise Postgres's connection limit for the plain items loader | Trial `postgres` runs with `max_connections=300`. The plain loader (`have.file.xml.tgt`) exhausted the default 100 loading hgnc's 44,000 genes. | load (hgnc) | omit (trial setting; the plain loader is no longer used after `8185114`) |
+| 09-17 05:11 | `8185114` | Gos | Transliterate non-ASCII attribute values for the InterMine items loader | Write attribute values as ASCII, working around the streaming loader's encoding bug | InterMine's streaming loader fails the whole load on a single non-ASCII character (`invalid byte sequence for encoding UTF8: 0x00`), shown with one Greek letter in an HGNC synonym. `items.py` now transliterates attribute values on the way into the items file: Greek letters by name ("alpha"), typographic punctuation to ASCII, everything else by Unicode decomposition, and `?` for a character with no ASCII form. rdfc2im's own tables keep the real text. | load (hgnc; a 5-item reproduction) | Approach (one sentence, as a workaround); Future Work (fix the loader) |
+| 09-17 05:55 | `059ee5f` | Gos | Record the hgnc load trial: three bugs, one systemic finding, one confirmed merge | Record the hgnc trial: the first merge of one gene from two sources | Documentation. The encoding bug, the connection limit, and a process step: `genomic_priorities.properties` must be copied into the mine checkout after every new source. The ambiguous Ensembl ids (D14) blocked a full hgnc load. A 73-item subset showed the merge working: BRCA1 and TP53 each one Gene row with NCBI fields (identifiers, chromosome) and HGNC fields (symbol, cytoLocation), synonyms from both. | load | Results |
+| 09-17 08:32 | `998c455` | Gos | Stop double-keying Ensembl genes on their own Ensembl id | Stop keying Ensembl genes on their Ensembl id as primaryIdentifier | The `-self-` fallback guessed the class key from the subject IRI and wrote the Ensembl id into `Gene.primaryIdentifier`, where HumanMine keeps NCBI ids. Each ensembl gene then became a second Gene and collided with ncbigene's on `key_symbol_org`. A source-specific knowledge entry drops ensembl's `-self-` row; the id stays in `secondaryIdentifier`. | load (ensembl, UGT1A1) | Results; Discussion (IRI-derived keys) |
+| 09-17 08:37 | `8f49123` | Gos | Try every single-field key a class has, not just the model-wide one | Merge items on whichever single-field key the row has | `items.py` identifies an object by trying each single-field key of its class in preference order (`model.key_attributes`) and using the first one the row fills, falling back to a hash of all values only when none is filled. Before, it used one class-wide key: ensembl rows carry only `secondaryIdentifier`, so they fell back to the hash and one gene split into several items (FMO3: 3). | load (ensembl) | Approach (item identity) |
+| 09-17 08:41 | `819309d` | Gos | Deduplicate resolve_ensembl_symbols by label: one gene per symbol | Resolve each symbol to one Ensembl gene | Ensembl's `rdfs:label` is not unique to one gene: "UGT1A1" also labels a UGT1A8 locus, and GALT and CYP2D6 had second ids. The Ensembl resolver now keeps the first match per symbol. A stated simplification for the panel: result order is not a guarantee that the first is canonical. | load (three integrate failures, one per gene) | Results; Future Work (choose the canonical gene) |
+| 09-17 08:43 | `acb1ba8` | Gos | Filter Ensembl's part_of column to real chromosomes, not the assembly too | Keep only real chromosomes in Ensembl's part_of column | `so:part_of` links a gene to its chromosome and to its assembly, so "GRCh38" became a Chromosome. A filter on the raw IRI keeps only 1-22, X, Y and MT. | load (priority conflict on Gene.chromosome) | Results |
+| 09-17 08:46 | `041b3ad` | Gos | Generate priorities for every source's reference fields, not just alongside ones | Generate priorities for every source's reference fields | The priorities generator now counts the references each source writes (for example `Gene.chromosome`) for every source, not only `alongside` ones. ncbigene and ensembl both write `Gene.chromosome`; without an entry the build stops. | load | Approach (priorities cover attributes and references) |
+| 09-17 08:59 | `a67ce39` | Gos | Attach uniprot's Gene sub-object to its Organism, not just Protein | Link UniProt's genes to their organism | The source constant `Organism.taxonId` attached to the table root (Protein) only, so genes reached through `core:encodedBy` had no organism and never matched ncbigene's genes on `key_symbol_org`: all 113 panel genes got a duplicate. The constant now also hangs off `Gene.organism` (`const_via`). The 113 duplicate rows were removed from the trial database by hand. | load (gene count rose by exactly 113) | Results; Discussion (organism links, with `b1a45fc`) |
+| 09-17 09:53 | `52f3b7c` | Gos | Attach clinvar's Gene sub-object to its Organism too, proactively | Link ClinVar's genes to their organism before loading | Same fix for ClinVar's gene (`med2rdf:gene`), applied before the first load. The integrate succeeded first time; gene count unchanged (193,288); CYP2D6 carries 58+ ClinVar alleles on the same Gene row as the other sources. | reading (the pattern from `b1a45fc`, `a67ce39`) | Results |
+| 09-17 10:00 | `bd3d198` | Gos | Retry as POST at the redirect target when a redirected POST's GET URL would be too long | Re-send a redirected POST as a POST when a GET would be too long | TogoVar redirects every request. A redirected POST was re-sent as a GET with the query in the URL, which fails with 414 once the gene-panel filter makes the query long. Past a safe URL length it is now re-sent as a POST to the new address. | fetch (gwascatalog) | omit (technical); Results mentions TogoVar's transport problems |
+| 09-17 10:05 | `1794061` | Gos | Fix Host header leaking into the redirect-target POST retry | Do not carry the old Host header into the redirected POST | The copied headers included `Host` for the original server, and the CDN answered with the same redirect until urllib gave up. Headers are now copied as the base class does, so Host is recomputed. | fetch | omit (technical) |
+| 09-17 10:08 | `043664b` | Gos | Suffix-match gene-scope terms against fields whose raw SPARQL value is an IRI | Match gene ids by suffix where the raw value is an IRI | Where a column's transform is `iri_localname`, a gene-list restriction becomes `STRENDS(STR(?x), "ENSG...")` (written `~"term"`) instead of string equality. TogoVar returns `snp_gene_ids` as identifiers.org IRIs, so equality never matched and every scoped fetch was empty. | fetch | Approach (scope rewrite handles IRIs); Results |
+| 09-17 10:13 | `898fd63` | Gos | React to a Sorted TOP cap discovered mid-paging, not just the upfront estimate | Detect a smaller sorted-row limit while paging | `fetch` reads the error body and recognizes Virtuoso's "Sorted TOP clause" message mid-paging; it then switches to key batching and discards the partial pages. TogoVar's limit is 10,000, so a 30,108-row table passed the 200,000 pre-check and failed during paging. | fetch (gwascatalog) | Approach (fetch strategy, step 3) |
+| 09-17 10:15 | `db4969a` | Gos | Stop trying GET after a Sorted TOP cap hit instead of masking it | Stop trying GET after a sorted-row limit error | A limit error is a property of the query, so `_fetch_once` returns it at once instead of trying a GET, whose own error (414) hid it. | fetch | omit (technical) |
+| 09-17 10:21 | `56e3224` | Gos | Drop a value that does not parse as its declared numeric type instead of writing it | Drop values that do not parse as the field's numeric type | `ItemStore` checks values against the field's declared Java type (numeric types) and drops a value that does not parse, listing it like an attribute conflict. GWAS Catalog uses "NR" (not reported) in `riskAlleleFreqInControls` (Double) on 10,853 of 30,108 rows, and InterMine's loader failed the whole load with a bare NumberFormatException. | load (gwascatalog) | Approach (type check on write); Results |
+| 09-17 10:23 | `7477073` | Gos | Record the gwascatalog load trial findings | Record the gwascatalog trial | Documentation: four TogoVar transport and data problems and the "NR" values. Loaded clean: 33,140 items; CYP2D6 and TAS2R38 show GWAS results with p-values. Also notes that the mine's build needs JDK 8. | load | Results |
+| 09-17 10:32 | `d1ade30` | Gos | Give key_attributes() the same no-curated-key fallback as key_attribute() | Give classes with no curated key a stable identifier key | `key_attributes` falls back to a common identifier attribute when no keys file declares a key, as `key_attribute` already did. Reactome's Pathway has no curated key, so rows were identified by the hash of all values; RDF Portal binds the multi-valued comment once per value, so 2,803 of 2,883 pathways loaded twice (5,687). Re-loading needed manual cleanup of InterMine's tracking tables. | use (the pathway count was double the known number of human pathways; `check` passed) | Approach (item identity); Results; Discussion (a count check from outside) |
+| 09-17 10:46 | `e840fec` | Gos | Record the reactome load trial findings | Record the reactome trial | Documentation: the doubled pathway count, found by comparing with the real number of human Reactome pathways, and the three rounds of manual cleanup (stale rows, tracker rows, DataSet/DataSource) needed to load a corrected file into a mine that already had the source. Final count 2,883. | load | Results; Future Work (re-loading a source) |
+| 09-17 10:48 | `8378aa0` | Gos | Add PMID-based build scoping for PubMed | Limit PubMed to the PMIDs the other sources cite | `extract_publication_pmids` collects every `Publication.pubMedId` from the other sources' items files (3,881 unique PMIDs from hgnc, uniprot and gwascatalog) and `--pmids` restricts PubMed to them, first by embedding the list in the query. | design (demo build) | list: Approach; embedding superseded by `8983190` |
+| 09-17 10:53 | `8983190` | Gos | Switch PubMed's PMID scoping from FILTER-embedding to fetch-time VALUES-batching | Apply the PMID limit at fetch time, in key batches | A 3,881-term filter in the query made RDF Portal redirect to an error page. `pipeline.fetch_source_by_keys` instead fetches each of a source's tables in `VALUES` batches of the key list (the same batching as the row-limit fallback). Gated by `pmid_scope_field` in `sources.yaml`. | fetch (pubmed) | Approach (fetch strategy, step 4) |
+| 09-17 10:57 | `18d135d` | Gos | Record the pubmed load trial findings | Record the pubmed trial and close the demo build | Documentation. 37,917 items (3,879 publications, MeSH terms, authors); MeshTerm merged correctly first time thanks to `d1ade30`. A PMID first loaded bare by the GWAS Catalog now has its title. The demo build is complete: ncbigene and reactome in full; hgnc, ensembl, uniprot, clinvar and gwascatalog for the panel; pubmed for the cited PMIDs. | load | Results |
+
+Notes on phase 8:
+
+- **What survives into Approach:** item identity (try each single-field key the row fills; a
+  class with no curated key uses a common identifier; hash only as a last resort), priorities for
+  references as well as attributes, type-checked numeric values, ASCII values (as a workaround),
+  suffix matching for IRI-valued gene fields, and fetch steps 3 and 4 (see phase 6 notes).
+- **Pattern for Results:** each source's first real load found problems that no earlier step
+  saw, and `check` passed before every one of them. Most were about identity: which key an object
+  merges on, and whether the objects it links to (gene, organism) can merge too.
+- **Discussion candidates (conceptual):**
+  - A plausibility check from outside (the known number of human Reactome pathways) found what
+    every internal check missed (`d1ade30`).
+  - Keys guessed from IRIs (`998c455`) and labels that are not unique (`819309d`) both produce
+    objects that look right and merge wrong.
 
 ### Phase 9. Running the mine
 
@@ -582,3 +599,39 @@ Notes on phase 7:
 | 09-17 13:58 | `3b30b63` | Gos | Record the demo panel's Ensembl gene IDs, as loaded |  |  |  |  |
 | 09-17 14:42 | `c3559ac` | Gos | Fix quicksearch: clean up orphaned intermineobject rows, add partial-word matching to Solr |  |  |  |  |
 | 09-17 14:50 | `6d17f21` | Gos | Investigate list-analysis widgets: one real bug found, rest confirmed working or correctly empty |  |  |  |  |
+
+## Future Work (collected)
+
+Open questions and deferred work, with the commit or document that records each. For the report's
+Future Work section.
+
+**Mapping and model**
+- GO annotations on proteins need an intermediate `GOAnnotation` object that one `via` cannot
+  express; left to stock go-annotation (`e04587a`).
+- Coordinates (FALDO locations) are not loaded, so the mine has no Location, chromosome
+  positions for SNPs, or the location-based postprocessing and widgets (D13; `9a3f6af`, `6d17f21`).
+- Open spec decisions: D1 (gene fields), D2 (`inSubset`), D5 (disease ids), D7 (HomoloGene needs
+  a cluster-to-pairwise transform), D10 (Expression Atlas experiments), D12 (GWAS study name).
+- 38 `todo` rows remain (STATUS.md, 17 Sep), 21 of them ClinVar.
+- GWASResult has no integration key, so one association with several genes becomes several
+  rows (2,828 of 23,201 duplicates) and `snp_gwas_study_enrichment` fails (`6d17f21`).
+- Ensembl symbol resolution takes the first match; choose the canonical gene properly (`819309d`).
+- The shared-Ensembl-id rule keeps 49 of 255 groups; a better rule, or a change to the key, is
+  open (D14, `54c9219`).
+- Draft keys (Pathway, MeshTerm) should become curated keys.
+
+**Loading and operations**
+- The streaming loader's non-ASCII bug should be fixed in InterMine; transliteration is a
+  workaround (`8185114`).
+- Re-loading a source into a mine that already has it needs manual cleanup of InterMine's
+  tracking tables, and a broad cleanup breaks other sources (`e840fec`, `4ca81e2`).
+- The mine build and load steps are not scripted; the trial mine is rebuilt from notes
+  (`144363f`, LOAD-TRIAL.md).
+- Reducing HumanMine to a subset of sources means trimming four config files by hand; this could
+  be generated from the merged model (`144363f`).
+- `genomic_priorities.properties` must be copied into the mine checkout after each new source
+  (`059ee5f`); `make fork-sync` could do it.
+
+**To check**
+- Which 7 panel symbols HGNC's lookup did not resolve (`9a563af`).
+- Whether UniProt was fetched from RDF Portal or sparql.uniprot.org (phase 1 notes).
