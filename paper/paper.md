@@ -59,9 +59,9 @@ that InterMine's standard loader integrates without new code. We used it to buil
 working demonstration HumanMine from nine sources and a panel of 113 food- and
 drug-metabolism genes, with NCBI Gene, the Gene Ontology and Reactome loaded in full. The
 mine supports search, template queries and list analysis. Real loads found problems that
-static checks did not, most of them about how objects from different sources are
-identified and merged, and about the limits of public SPARQL endpoints. The work is a
-proof of concept. We list what remains to be done before rdfc2im can rebuild a full
+static checks did not, most of them related to the way objects from different sources are
+identified and merged, and to the limits of public SPARQL endpoints. This report describes
+our proof of concept. We list what remains to be done before rdfc2im can rebuild a full
 HumanMine from each RDF Portal release.
 
 Table: Glossary. Terms used in this report, as they are used here.
@@ -83,9 +83,10 @@ Table: Glossary. Terms used in this report, as they are used here.
 
 # Introduction
 
-Integrative analysis in biology depends on bringing independent databases together, so
-that the evidence about, for instance genes, proteins or diseases can be queried in one
-place. InterMine is an open-source data warehouse system built for this purpose
+Integrative analysis in biology depends on bringing independent databases
+together, so that the evidence can be queried in one place. Evidence might
+pertain to genes, proteins, organisms, diseases, or ecological relationships.
+InterMine is an open-source data warehouse system built for this purpose
 [@citesAsAuthority:Smith2012InterMine].  From one object model, based on the Sequence
 Ontology, InterMine generates a web interface, a query builder, a template search
 capability, list analysis with enrichment statistics, and a REST API with client libraries
@@ -126,7 +127,7 @@ fetches the results, and writes InterMine Items XML for the stock InterMine load
 this report we describe rdfc2im and its use at the DBCLS BioHackathon 2026, where we built
 a working demonstration HumanMine for a panel of 113 food- and drug-metabolism genes from
 nine RDF sources, most of them on RDF Portal. We also record the problems that only a real
-InterMine load revealed, which static checks of the mapping did not.
+InterMine load can reveal, which static checks of the mapping did not.
 
 ![How a mine gets its data. (a) Today each HumanMine source has its own loader, written and
 maintained as code by the mine's developers. (b) With RDF Portal and rdfc2im, the work for each
@@ -173,11 +174,11 @@ For each source, rdfc2im walks the rdf-config model from a root subject, for exa
 of NCBI Gene. It binds each subject to an InterMine class, and each predicate to a field of that
 class. The first rule that applies decides:
 
-1. an explicit rule for this source;
+1. an explicit rule for this source
 2. a match between the RDF type or predicate IRI and the ontology term that the InterMine model
-   gives a class or field;
-3. a general rule for that RDF type or predicate;
-4. a match between names;
+   gives a class or field
+3. a general rule for that RDF type or predicate
+4. a match between names
 5. otherwise the row is tagged as "todo" and left for a curator.
 
 Every column that rdfc2im extracts is an attribute of one object. When a value belongs to a
@@ -345,16 +346,18 @@ becomes several rows (2,828 of 23,201 are duplicates).
 
 ## Curation
 
-They system has been set up to enable curation but due to time constraints curation was
-not carried out and information given is based on automated assignments.  Across 15
-translated sources, the active rows of the mapping files (those not under a skipped
+They system has been set up to enable curation but due to time constraints our curation pass was
+not fully rigorous, and much of the information given depends on automated assignments. We were able
+to demonstrate that the curation workflow works correctly, and that it is often possible to validate
+automated decisions through their outcomes via independent sources of evidence.
+Across 15 translated sources, the active rows of the mapping files (those not under a skipped
 subject) are 124 `sure`, 64 `guess`, 38 `todo` and 309 `drop`. Of the 38 open rows, 21 are
 ClinVar genome coordinates, which are deferred. The shared rule file holds 449 rules with
 a recorded basis. 211 of them cite a stock HumanMine converter as evidence, and 18 rest on
 a match between an RDF term and an InterMine ontology term. So the stock converters, not
 term matching, supplied most of the mapping.
 
-## What the real loads found
+## Integration test results
 
 Each source's first real load found problems that no earlier step had found, and the
 static checks passed before every one of them. Table 3 describes the issues. Most were
@@ -388,8 +391,8 @@ mapping kept as reviewable data and with no new Java code. It also demonstrates 
 Portal's review guidelines and rdf-config models were designed to allow: a third party
 reused the data automatically, for a purpose its providers did not plan. The result is a
 proof of concept, not a replacement for HumanMine. It loads nine sources, most of them
-limited to a panel of 113 genes, where HumanMine's 2022 release integrated about 60
-datasets from around 30 data sources, and it loads no genome coordinates. We hope the
+limited to a panel of 113 genes without genome coordinates, whereas HumanMine's 2022
+release integrated about 60 datasets from around 30 data sources. We hope the
 lessons below help others who try the same with other mines or other RDF collections.
 
 ## Term matching and stock converters
@@ -403,22 +406,22 @@ name to `Allele.reference` held the reference sequence, not the reference base; 
 rdf-config identifier differs from the key HumanMine uses; and a filter to reviewed
 UniProt entries would have removed about 83% of HumanMine's human proteins. For anyone
 replacing an established loader, the behavior of that loader is the
-specification. Recording the basis of every mapping row made these changes cheap to find
+specification. Recording the basis of every mapping row made these changes easy to find
 and to make.
 
 ## What a translator needs from an rdf-config model
 
 The rdf-config models were enough to generate every query in this work. Some things a translator
-needs are not stated in them, and had to come from elsewhere. A model does not mark which
-predicate identifies a record; rdfc2im takes this from InterMine's integration keys. Example values
-listed under one predicate may be alternative shapes of one value, not separate values (PubMed's
-MeSH headings). Blank nodes can carry structural labels that look like data (ClinVar's location
-labels). One predicate can mix different kinds of value: Reactome's comments hold both descriptions and
-curation notes, and Ensembl's `part_of` points at both a chromosome and an assembly. RDF Portal
-already uses its models to draw schema diagrams, to configure its GraphQL interface and to guide
-AI agents. Small additions, such as marking a record's identifier and whether examples are
-alternatives, would help every such consumer. We offer these as input to the development of
-rdf-config.<!-- TODO (Katayama, Kawashima): check this paragraph as rdf-config and RDF Portal developers. -->
+needs are not stated in them, and had to come from elsewhere. A model does not mark which predicate
+identifies a record; rdfc2im takes this from InterMine's integration keys. Example values listed
+under one predicate may be alternative shapes of one value, not separate values (PubMed's MeSH
+headings). Blank nodes can carry structural labels that can be misinterpreted as data if not
+handled correctly (ClinVar's location labels). One predicate can mix different kinds of value:
+Reactome's comments hold both descriptions and curation notes, and Ensembl's `part_of` points at
+both a chromosome and an assembly. RDF Portal already uses its models to draw schema diagrams, to
+configure its GraphQL interface and to guide AI agents. Small additions, such as marking a record's
+identifier and whether examples are alternatives, would help every such consumer. We offer these as
+input to the development of rdf-config.
 
 ## Identity is the hard part
 
@@ -477,19 +480,10 @@ from start to finish; we see that as the most important next step.
 
 ## Acknowledgements
 
-<!-- TODO: other acknowledgements (DBCLS, BH26JP organizers, funding). -->
-
-We used Claude (Anthropic) as a programming and writing assistant during this project.
-<!-- TODO: agree the exact wording and scope of this statement among the authors. -->
-
-```{=latex}
-\AtEndDocument{%
-```
-
-# Appendices
-
-<!-- TODO, or remove this section and the LaTeX wrapper around it -->
-
-```{=latex}
-}
-```
+We would like to thank the Database Division of Life Sciences and the National Institute of Genetics
+for their support, and the organizers of the 2026 DBCLS BioHackathon in particular.  R.Y.N. was
+supported by JST DICP Grant Number JPMJND2206, GteX Grant Number JPMJGX23B2, and JSPS KAKENHI Grant
+Numbers 23KK0122, 24K01889, and 25K09119 to Motomu Matsui at the Institute for Chemical Research,
+Kyoto University.  The authors benefited from input, perspectives, support and encouragement
+from many other participants of the 2026 DBCLS BioHackathon. Claude (Anthropic) was used as
+programming and writing assistant during this project.
