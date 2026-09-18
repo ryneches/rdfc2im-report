@@ -19,7 +19,7 @@ authors:
     affiliation: 2
   - name: Gos Micklem
     orcid: 0000-0002-6883-6168
-    affiliation: 3
+    affiliation: "3, 2"
 affiliations:
   - name: Institute for Chemical Research, Kyoto University, Kyoto, Japan
     ror: 02kpeqv85
