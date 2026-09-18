@@ -119,6 +119,6 @@ The facts that matter to them, stated plainly in the normal flow of the report:
    location), Ensembl (Ensembl id), UniProt (protein), ClinVar (58+ alleles with clinical
    significance), the GWAS Catalog (results with p-values) and PubMed (cited publications). That
    is slide 1's claim ("every integrated class is assembled from many separate sources") shown
-   in the running system, and it is readable by all three audiences. The trial stack runs on the
-   development machine (BlueGenes on port 5000), so it can be captured there.
+   in the running system, and it is readable by all three audiences. The demo mine runs on Gos's machine,
+   not on the report author's (whose trial stack holds only the GO load), so Gos needs to capture it.
 4. **Terms.** A glossary box between the abstract and the introduction.

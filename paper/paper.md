@@ -250,7 +250,83 @@ containers on one machine.
 
 # Results
 
-<!-- TODO -->
+## The demonstration mine
+
+We built a working HumanMine from nine sources (Table 2). Every source loaded into one mine, and
+objects from different sources merged as intended: for example, BRCA1 and TP53 are each one Gene
+that carries identifiers and chromosome from NCBI Gene, the approved symbol and cytogenetic location
+from HGNC, and synonyms from both.
+
+Table: The sources of the demonstration build. *Role* says how the source relates to HumanMine's
+own source for the same data (see Approach). *Scope* says how much was loaded. Counts are from the
+load records in the repository (`LOAD-TRIAL.md`).
+
+| Source | Endpoint | Role | Scope | Loaded |
+|--------|----------|------|-------|--------|
+| NCBI Gene | RDF Portal | replaces | all human genes | 193,288 genes |
+| Gene Ontology | RDF Portal | replaces | all terms | 48,340 terms |
+| Reactome | RDF Portal | alongside | all human pathways | 2,883 pathways |
+| HGNC | RDF Portal | replaces | gene panel | <!-- TODO --> |
+| Ensembl | RDF Portal | adds | gene panel | <!-- TODO --> |
+| UniProt | RDF Portal | alongside | gene panel | <!-- TODO --> |
+| ClinVar | RDF Portal | replaces | gene panel | <!-- TODO --> |
+| GWAS Catalog | TogoVar | replaces | gene panel | 23,201 results, 2,505 SNPs |
+| PubMed | RDF Portal | adds | cited publications | 3,879 publications |
+
+<!-- TODO (Gos): item counts for HGNC, Ensembl, UniProt and ClinVar from the demo mine; confirm
+the UniProt endpoint (the generated queries name RDF Portal's SIB endpoint). -->
+
+The mine supports HumanMine's usual ways in. Keyword search finds genes by partial symbol (a
+search for "cyp" returns the CYP family genes). Template queries work: three of HumanMine's own
+templates still apply to this smaller mine (two needed their default organism changed to human),
+and we added six for the panel. The BlueGenes report
+page for a panel gene shows data from every source on one page (Figure 2). List analysis works
+where the data exists: publication enrichment and chromosome distribution for the 113 panel genes,
+and publication enrichment for the 2,505 SNPs.
+
+<!-- TODO Figure 2 (Gos): screenshot of the BlueGenes report page for CYP2D6 in the demo mine,
+showing NCBI Gene and HGNC identifiers, the Ensembl id, UniProt protein, ClinVar alleles, GWAS
+results and publications. Caption: one gene assembled from seven sources. -->
+
+Some features are empty, and each gap traces to data that was not loaded rather than to a fault
+in the interface. There are no genome coordinates, so the chromosome distribution for SNPs and
+HumanMine's location-based features are empty. GO annotations, protein domains and interactions
+come from stock sources that this build did not run. The GWAS study enrichment widget fails,
+because GWASResult has no integration key in HumanMine: one association that names several genes
+becomes several rows (2,828 of 23,201 are duplicates).
+
+## Curation
+
+Across 15 translated sources, the active rows of the mapping files (those not under a skipped
+subject) are 124 `sure`, 64 `guess`, 38 `todo` and 309 `drop`. Of the 38 open rows, 21 are ClinVar genome coordinates, which are
+deferred. The shared rule file holds 449 rules with a recorded basis. 211 of them cite a stock
+HumanMine converter as evidence, and 18 rest on a match between an RDF term and an InterMine
+ontology term. So the stock converters, not term matching, supplied most of the mapping.
+
+## What the real loads found
+
+Each source's first real load found problems that no earlier step had found, and the static check
+passed before every one of them. Table 3 groups them. Most were about identity: which key an
+object merges on, and whether the objects it links to can merge too.
+
+Table: Problems found by fetching and loading real data, grouped by kind. *Found* is the first
+stage that showed the problem: a full fetch, an InterMine load, or use of the running mine.
+
+| Kind | What happened | Found | Fix |
+|--------|--------------------------------------------|------------|---------------------------|
+| Identity | An Ensembl gene's own IRI was guessed as its primary key, where HumanMine uses NCBI ids; every Ensembl gene became a duplicate | load | Drop the guessed key for that source |
+| Identity | Ensembl rows carry only a gene's secondary key, but items were identified by the primary key alone, so one gene split into several items | load | Try each single-field key the row fills |
+| Identity | Reactome pathways have no curated key; a multi-valued comment made rows differ, and 2,803 of 2,883 pathways loaded twice | use (the count was double the known number) | Fall back to a common identifier field |
+| Identity | Genes reached from UniProt had no organism, so they could not merge: 113 duplicate genes. The same gap in the GWAS Catalog and ClinVar was fixed before loading | load | Attach the organism to the linked gene |
+| Identity | 255 Ensembl ids are each claimed by two or more genes in NCBI Gene, which breaks one of HumanMine's keys | load | Keep the id only where a rule picks one gene |
+| Identity | ClinVar's rdf-config model identifies a record by its VCV accession; HumanMine keys alleles on the numeric AlleleID | reading the converter | Key on AlleleID; keep VCV as a secondary identifier |
+| Endpoint | Past 200,000 sorted rows RDF Portal refuses the request; the truncated table was taken as complete (16.7% of gene synonyms lost) | full fetch | Detect the limit; fetch in key batches |
+| Endpoint | Paging by comparing values returned wrong results on RDF Portal (14.7% of genes would have been lost) | full fetch | Not used; batch by listed keys instead |
+| Endpoint | TogoVar has a 10,000-row limit and returns gene ids as IRIs, so gene-limited queries returned nothing | full fetch | Detect the limit during paging; match the end of the IRI |
+| Data shape | OWL structure in OBO data: 16,178 blank-node parents and 11 OWL properties loaded as GO terms | full fetch, use | Filter on the raw value |
+| Data shape | rdf-config's four example values for one PubMed predicate became four columns: 625 rows for a paper with 5 MeSH headings | fetch | Map the predicate once |
+| Data shape | "NR" in a numeric GWAS field, and one non-ASCII character, each stopped a whole load | load | Drop values that do not parse; write ASCII |
+| Mine | Removing a stock source also removed the model classes it declared (`GOTerm`) and data it alone loaded (Reactome's gene membership) | load, reading | Carry every non-core class; load alongside |
 
 # Discussion
 
