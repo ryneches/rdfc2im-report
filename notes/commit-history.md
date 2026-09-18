@@ -589,16 +589,30 @@ Notes on phase 8:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-17 12:17 | `c146947` | Gos | Patch the staged webapp's project.title, same pattern as the DB-host patch |  |  |  |  |
-| 09-17 12:32 | `ce70e33` | Gos | Run HumanMine's postprocessing and add a Solr service for search/autocomplete |  |  |  |  |
-| 09-17 13:09 | `602ef7a` | Gos | Record the create-search-index stall and its resolution |  |  |  |  |
-| 09-17 13:13 | `a95d5f1` | Gos | Record two corrections caught by checking the live system, not the report |  |  |  |  |
-| 09-17 13:22 | `f36f05c` | Gos | Repoint two stock templates' organism default from Plasmodium to Homo sapiens |  |  |  |  |
-| 09-17 13:30 | `1a5db72` | Gos | Give DataSource a real url, sourced from sources.yaml |  |  |  |  |
-| 09-17 13:54 | `4ca81e2` | Gos | Record why the DataSource.url live-mine retrofit was abandoned, not just the code fix |  |  |  |  |
-| 09-17 13:58 | `3b30b63` | Gos | Record the demo panel's Ensembl gene IDs, as loaded |  |  |  |  |
-| 09-17 14:42 | `c3559ac` | Gos | Fix quicksearch: clean up orphaned intermineobject rows, add partial-word matching to Solr |  |  |  |  |
-| 09-17 14:50 | `6d17f21` | Gos | Investigate list-analysis widgets: one real bug found, rest confirmed working or correctly empty |  |  |  |  |
+| 09-17 12:17 | `c146947` | Gos | Patch the staged webapp's project.title, same pattern as the DB-host patch | Set the trial mine's display title at staging time | `trial-stage.sh` patches `project.title` in the exploded webapp, as it already patches the database host, so the demo name is not built into the war. | use | omit (trial setting) |
+| 09-17 12:32 | `ce70e33` | Gos | Run HumanMine's postprocessing and add a Solr service for search/autocomplete | Run HumanMine's postprocessing, and add Solr for search and autocomplete | No postprocessing had run: the QueryBuilder class list had no counts and `/service/search` failed. Ran, in `project.xml` order, `create-references`, `create-attribute-indexes`, `create-search-index`, `create-autocomplete-index` and `summarise-objectstore`. Skipped the location and sequence tasks (no Location or Sequence data loaded), `do-sources`, and `update-data-sources`/`update-publications` (need Micklem-lab paths). Added a `solr:8.6.2` service with a persistent volume; `trial-stage.sh` rewrites the Solr URL inside `dbmodel.jar` in the war. Also saves the 6 new public templates as SQL. | use (classic webapp features) | Results (the running mine); Future Work (postprocess tasks that need location data or lab paths) |
+| 09-17 13:09 | `602ef7a` | Gos | Record the create-search-index stall and its resolution | Record a stalled search-index build and its recovery | Documentation. `create-search-index` stalled once with idle Postgres connections growing; killing the gradle daemon and retrying finished in 72 s. | use | omit (environment) |
+| 09-17 13:13 | `a95d5f1` | Gos | Record two corrections caught by checking the live system, not the report | Record two checks made against the live system | Documentation. `summarise-objectstore` writes one row to `intermine_metadata`, not a table of its own (confirmed it ran). BlueGenes needs its container recreated, not restarted, to pick up a changed environment variable. | use | omit (operations) |
+| 09-17 13:22 | `f36f05c` | Gos | Repoint two stock templates' organism default from Plasmodium to Homo sapiens | Point two stock templates at Homo sapiens | Two surviving stock templates defaulted their organism constraint to Plasmodium falciparum 3D7, so they returned nothing on a human build. Updated in the userprofile database; the SQL is appended to `curation/demo_public_templates.sql`. | use | Results (templates); Future Work (templates as configuration) |
+| 09-17 13:30 | `1a5db72` | Gos | Give DataSource a real url, sourced from sources.yaml | Give each DataSource a URL, from sources.yaml | Optional `data_source_url` per source (9 set), written into `DataSource.url` by `items.py`. Stock HumanMine fills it with the `update-data-sources` task, which needs a lab-specific file; without it BlueGenes' Browse Sources page fails. Applies to fresh builds only (see `4ca81e2`). | use (Browse Sources page) | Approach (provenance: DataSet and DataSource per source); note the UniProt URL question in phase 1 |
+| 09-17 13:54 | `4ca81e2` | Gos | Record why the DataSource.url live-mine retrofit was abandoned, not just the code fix | Record why the DataSource URL could not be applied to the loaded mine | Documentation. A SQL update of `datasource.url` did not show in the webapp, because InterMine serves objects from a serialized copy in `intermineobject`. Re-integrating needed the `tracker` rows cleared, and clearing them for all sources broke every source that merges onto ncbigene's genes. Reverted with no data change; the fix waits for a fresh build. A GO re-integrate also found two GO terms with the same name and ontology (`key_name_ontology`), left open. | use | Future Work (re-loading sources; GO name key); Discussion (a mine is built, not edited) |
+| 09-17 13:58 | `3b30b63` | Gos | Record the demo panel's Ensembl gene IDs, as loaded | Record the panel's Ensembl gene ids, as loaded | `curation/demo_gene_panel_ensembl_ids.txt`, read from the mine. GSTT1 has none (no gene2ensembl mapping upstream). | use | Results (panel coverage) |
+| 09-17 14:42 | `c3559ac` | Gos | Fix quicksearch: clean up orphaned intermineobject rows, add partial-word matching to Solr | Fix quick search: remove orphan object rows; add prefix matching to Solr | 5,802 rows in `intermineobject` had no row in their class table (113 Gene, 5,687 Pathway), left by earlier manual cleanups; they became phantom search hits. Deleted. The Solr cores (created from the schemaless default) had no partial-word matching, so "cyp" matched no CYP gene: `tools/solr-search-schema-fix.sh` adds an edge n-gram filter (3-10 characters) at index time. "cyp": 25 hits (1 wrong gene) -> 600 hits (172 genes). | use (a search for "cyp") | Results (search works); Future Work (a Solr schema for InterMine in the stack) |
+| 09-17 14:50 | `6d17f21` | Gos | Investigate list-analysis widgets: one real bug found, rest confirmed working or correctly empty | Check the list-analysis widgets | Documentation. With two lists (113 panel genes; 2,505 SNPs): publication enrichment, chromosome distribution for genes, and SNP publication enrichment work. SNP-GWAS-study enrichment fails its hypergeometric test because 2,828 of 23,201 GWASResult rows are duplicates (no integration key). SNP chromosome distribution is empty (no SNP chromosome loaded). GO, protein domain, pathway and interaction widgets are empty as expected. Also: the widget returns empty results, with no error, for an unrecognized correction name. | use | Results (widgets); Future Work (GWASResult key, coordinates) |
+
+Notes on phase 9:
+
+- Only `1a5db72` changes rdfc2im. The rest is making the trial mine usable (postprocessing,
+  Solr, templates) and recording what the running mine showed.
+- **Results:** the demo mine supports search (after the Solr fix), templates (3 stock that
+  survive the reduced mine, 6 new, 2 repointed), and the list widgets for which data was
+  loaded. The widgets that fail or are empty trace to data not loaded (coordinates) or a
+  missing key (GWASResult), not to the interface.
+- **Discussion candidate (conceptual):** an InterMine is built, not edited. Objects are served
+  from a serialized copy, and per-source provenance (`tracker`) ties every source's merges
+  together, so correcting one source in a loaded mine is fragile (`4ca81e2`, `e840fec`). For a
+  pipeline that regenerates from RDF, the natural unit of update is a full rebuild; this is an
+  argument for scripting the build.
 
 ## Future Work (collected)
 
@@ -631,6 +645,15 @@ Future Work section.
   be generated from the merged model (`144363f`).
 - `genomic_priorities.properties` must be copied into the mine checkout after each new source
   (`059ee5f`); `make fork-sync` could do it.
+
+- Postprocessing tasks skipped for lack of data or lab paths: the location tasks (need
+  coordinates), `update-data-sources` and `update-publications` (`ce70e33`).
+- The Solr cores should use a schema made for InterMine; the edge n-gram fix is applied by a
+  separate script (`c3559ac`).
+- Templates live in the userprofile database as SQL; they should be part of the build
+  configuration (`ce70e33`, `f36f05c`).
+- Two GO terms share a name and ontology, which breaks `OntologyTerm.key_name_ontology` on a
+  re-integrate (`4ca81e2`).
 
 **To check**
 - Which 7 panel symbols HGNC's lookup did not resolve (`9a563af`).
