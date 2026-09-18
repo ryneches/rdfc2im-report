@@ -450,16 +450,35 @@ Notes on phase 4:
 
 | UTC | commit | author | original subject | clear title | what changed | found by | feeds |
 |---|---|---|---|---|---|---|---|
-| 09-16 15:34 | `252787f` | Russell | Include approved model extensions in the model mappings resolve against |  |  |  |  |
-| 09-16 15:37 | `bfd7216` | Russell | Stop loading Reactome pathway publications that attach to nothing |  |  |  |  |
-| 09-16 15:37 | `22866e9` | Russell | Take Reactome pathway descriptions from the summation only |  |  |  |  |
-| 09-16 15:49 | `cfb4ee9` | Russell | Build genomic_priorities from HumanMine's own, not a side draft |  |  |  |  |
-| 09-16 15:50 | `323e6fe` | Russell | Load Reactome and UniProt alongside their stock sources |  |  |  |  |
-| 09-16 15:50 | `4769e66` | Russell | Leave UniProt sequences to stock uniprot |  |  |  |  |
-| 09-16 15:56 | `6c2cbea` | Russell | Count a field written on a subclass as covering the declared one |  |  |  |  |
-| 09-16 15:57 | `2ffdbe4` | Russell | Fail check on a replacement gap unless it is accepted with a reason |  |  |  |  |
-| 09-16 16:08 | `2473fbf` | Russell | Drop rows whose required key is empty |  |  |  |  |
-| 09-16 16:09 | `0f785f6` | Russell | Key ClinVar alleles on AlleleID, as stock clinvar does |  |  |  |  |
+| 09-16 15:34 | `252787f` | Russell | Include approved model extensions in the model mappings resolve against | Resolve mappings against the approved model extensions too | `load_model` also loads `curation/extensions_additions.xml`, the extensions `project` puts into the mine. Before, a mapping onto an approved field (Reactome `Pathway.organism`) found no link and its objects were created unlinked. Side effect: MeSH's draft key becomes `MeshTerm.identifier`, so mesh and pubmed MeshTerms merge with each other. | fetch (unlinked Reactome organisms) | Approach (the model rdfc2im reasons about = mine model + approved extensions) |
+| 09-16 15:37 | `bfd7216` | Russell | Stop loading Reactome pathway publications that attach to nothing | Stop loading Reactome pathway publications that attach to nothing | Pathway is not Annotatable and has no publications field, so every Reactome PublicationXref became an orphan Publication. `PublicationXref` is now `role: skip`; stock ReactomeConverter loads none either. | fetch (unlinked-item warning) | Results (curation) |
+| 09-16 15:37 | `22866e9` | Russell | Take Reactome pathway descriptions from the summation only | Take Reactome pathway descriptions from the summation only | `biopax:comment` is multi-valued: beside the summation, pathways carry "Reviewed:", "Authored:" and "Edited:" provenance comments (3,674, 2,955 and 2,809 across human pathways). A filter drops exactly those three prefixes. 2,883 human pathways have 2,884 summations. | fetch (attribute conflicts) | Results (curation); see `d1ade30` for the merge bug this left |
+| 09-16 15:49 | `cfb4ee9` | Russell | Build genomic_priorities from HumanMine's own, not a side draft | Generate merge priorities from HumanMine's own file | `project` reads HumanMine's `genomic_priorities.properties` (a new input from `make inputs`) and writes it back with rdfc2im's sources merged in: a replacing source takes the slot of the stock source it replaces (so the curated order stands), any other rdfc2im writer goes just before `*`, and a field HumanMine does not configure gets an entry when two rdfc2im sources write it. InterMine stops a load when two sources give one field different values and no priority names both. | reading (SourcePriorityComparator) | Approach (priorities) |
+| 09-16 15:50 | `323e6fe` | Russell | Load Reactome and UniProt alongside their stock sources | Load Reactome and UniProt alongside their stock sources, not in place of them | New `alongside:` in `sources.yaml`. Such a source is inserted into `project.xml` right after the stock source it supplements, and its priorities list the stock source first for every attribute and reference it writes, so HumanMine's values stand and rdfc2im fills what stock leaves empty. Order matters because each source merges by its own keys (stock reactome has no Pathway key). `check` makes it a hard problem to load before the stock source, or to both replace and supplement one. | reading (the replacement check from `56fb5ca`) | Approach (replace vs alongside) |
+| 09-16 15:50 | `4769e66` | Russell | Leave UniProt sequences to stock uniprot | Leave UniProt sequences to stock uniprot | Loaded alongside stock, `rdf:value` -> `Sequence.residues` only adds duplicates: Sequence has no integration key, so rdfc2im's would never merge. Dropped; `Protein.molecularWeight` stays (attributes merge by priority). | reading | Results (curation) |
+| 09-16 15:56 | `6c2cbea` | Russell | Count a field written on a subclass as covering the declared one | Count a field written on a subclass as covering the declared field | In the replacement check, a field declared on a class counts as written when any subclass writes it (hpo writes `HPOTerm.crossReferences`, declared on OntologyTerm). | reading (a false alarm) | omit (technical) |
+| 09-16 15:57 | `2ffdbe4` | Russell | Fail check on a replacement gap unless it is accepted with a reason | Make a replacement gap a hard problem unless it is accepted with a reason | Every gap from the replacement check is now a hard problem, unless `sources.yaml` `accepted_gaps` records the basis and the reason it is not a loss (per `Class.field` or whole class). Accepted gaps are listed as notes; an acceptance that matches no gap is flagged. Three are accepted today, all for gwascatalog replacing huge-gwas: `GWAS.firstAuthor` (not in the RDF; reachable through the publication) and `GWASResult.source`/`Source` (declared by stock, never set). | design (follows `56fb5ca`) | Approach (replacement check) |
+| 09-16 16:08 | `2473fbf` | Russell | Drop rows whose required key is empty | Drop rows whose required key is empty | `clean_table` drops a row whose required column is empty (counted as `no_key`), as it already did for one that fails its filter. An item without its identifier can never merge. | fetch (a stale raw file gave every ClinVar Allele an empty identifier) | Approach (cleaning: required = key) |
+| 09-16 16:09 | `0f785f6` | Russell | Key ClinVar alleles on AlleleID, as stock clinvar does | Key ClinVar alleles on the numeric AlleleID, as stock does | `Allele.primaryIdentifier` now comes from `cvo:allele_id` (the stock converter's key, and `clinvar_keys.properties`'), and the VCV accession moves to `Allele.secondaryIdentifier`. On RDF Portal 3,586,720 records carry 3,586,720 distinct AlleleIDs; 2,249 have none and are not loaded. `cvo:allele_id` sits on a nested node, so every ClinVar table's required pattern now runs through that path. | reading + fetch (checked uniqueness on RDF Portal) | Results; Discussion (identifier schemes, with `05926b4`) |
+
+Notes on phase 5:
+
+- **The final source roles** (current `sources.yaml`), for the Approach source table:
+  - *replaces* a stock source: ncbigene (ncbi-gene), hgnc, go, hpo, mp
+    (mammalian-phenotype-ontology), gwascatalog (huge-gwas), clinvar;
+  - *alongside* a stock source: uniprot, reactome;
+  - *adds*, replacing nothing: uberon, pubmed, ensembl, mesh, expressionatlas, homologene.
+- **What survives into Approach:** the model = the mine's model plus approved extensions; generated
+  priorities; the three source roles and their placement in `project.xml`; the replacement check
+  with accepted gaps; required columns as keys (a row without its key is dropped). The priorities
+  rule was later extended to every source's reference fields (`041b3ad`, phase 8); the
+  `alongside` placement is unchanged.
+- **Discussion candidate (conceptual):** replacing a stock source is not the same as mapping its
+  data. A source can load everything its RDF offers and still delete what the stock converter
+  loaded from elsewhere (Reactome's gene and protein membership, UniProt's features). The check
+  compares against what the stock source *declares*, which is a proxy for what it loads, so
+  false alarms must be accepted with evidence. This is a general point about replacing an
+  established pipeline piece by piece.
 
 ### Phase 6. Fetching at scale
 
